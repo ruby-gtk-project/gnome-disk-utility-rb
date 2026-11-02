@@ -19,8 +19,20 @@ one flat `lib/<thing>.rb`, `# frozen_string_literal: true`, `require 'adwaita'`
 memoized accessors configured in `.tap` blocks.
 
 Counts: 34 upstream UI units (29 blueprint, 2 GtkBuilder `.ui`, 3 code-only
-widgets). `lib/` currently holds 1 unit (a placeholder application), so parity
-is **1 of 34**, and even that one does not match the house layout.
+widgets), plus the model layer, the stylesheet, the second app and the
+notifier — 46 mapped port files in the summary table below.
+
+Parity as of this revision: **14 of 46 present** — `lib/main.rb`,
+`lib/window.rb`, `lib/shortcuts_dialog.rb`, `lib/drive_row.rb`,
+`lib/job_row.rb`, `lib/space_allocation_bar.rb`, `lib/combo_row.rb`,
+`lib/take_ownership_dialog.rb`, `lib/utils.rb`, `lib/style.rb`,
+`lib/item.rb`, `lib/job_manager.rb` + `lib/local_job.rb`,
+`lib/estimator.rb`, `lib/enums.rb`. `lib/gnome_disk_utility/application.rb`
+remains the kettle-jem scaffold placeholder; the app proper is `lib/main.rb`.
+Everything else below is still missing: the drive view and its header, the
+block row, all 23 drive- and volume-level dialogs and wizard pages, the model
+layer (`manager`, `drive`, `block`), the Disk Image Mounter app and the
+notifier.
 
 ---
 
@@ -54,7 +66,7 @@ should install them on the window and route them, which also makes the
 shortcuts dialog honest.
 
 ### `src/resources/ui/gdu-window.blp` + `src/disks/gdu-window.c` — the main window
-→ `lib/window.rb` · kind: window · **missing**
+→ `lib/window.rb` · kind: window · **present**
 
 | Widget | × | CSS | Signals | Notes |
 |---|---:|---|---|---|
@@ -82,7 +94,7 @@ Shortcuts” (`app.shortcuts`), “_Help” (`app.help`), “_About Disks”
 `app_entries` — another upstream gap the port should close.
 
 ### `src/resources/ui/shortcuts-dialog.blp` — keyboard shortcuts
-→ `lib/shortcuts_dialog.rb` · kind: dialog · **missing**
+→ `lib/shortcuts_dialog.rb` · kind: dialog · **present**
 
 `Adw.ShortcutsDialog` with 4 `Adw.ShortcutsSection`s and 14
 `Adw.ShortcutsItem`s: General (Help `F1`, app menu `F10`, shortcuts
@@ -149,7 +161,7 @@ Self-Tests… (`view.smart`), Drive Settings… (`view.settings`) / Standby
 (`view.poweroff`).
 
 ### `src/resources/ui/gdu-drive-row.blp` + `gdu-drive-row.c` — one drive in the sidebar
-→ `lib/drive_row.rb` · kind: row · **missing**
+→ `lib/drive_row.rb` · kind: row · **present**
 
 `Adw.ActionRow` template with a prefix `Gtk.Image` `drive_image`
 (`lowres-icon`, pixel-size 32). Title/subtitle set from the drive; row is the
@@ -196,7 +208,7 @@ filesystem”, “Error while checking filesystem”, “Error while repairing
 filesystem”, “Error while taking filesystem ownership”.
 
 ### `src/disks/gdu-space-allocation-bar.c` — the space bar
-→ `lib/space_allocation_bar.rb` · kind: widget (custom draw/allocate) · **missing**
+→ `lib/space_allocation_bar.rb` · kind: widget (custom draw/allocate) · **present**
 
 A `Gtk.Widget` subclass with its own `measure`/`size_allocate`, CSS class
 `space-allocation-bar`, holding one `Adw.Bin` per block with CSS classes
@@ -206,7 +218,7 @@ Cairo-drawing pattern for exactly this (see the `ruby-gtk` skill's
 declarative-patterns reference).
 
 ### `src/resources/ui/gdu-job-row.blp` + `gdu-job-row.c` — one running job
-→ `lib/job_row.rb` · kind: row · **missing**
+→ `lib/job_row.rb` · kind: row · **present**
 
 `Adw.PreferencesRow` template (`focusable: false`) → `Gtk.Box` (vertical)
 with a title `Gtk.Label` bound to `template.title`, a `Gtk.Box` holding a
@@ -327,7 +339,7 @@ feeding the jobs popover.
 `destination_row` “Destination” (`property`, `notify::selected`).
 
 ### `src/disks/gdu_combo_row.rs` — non-truncating combo row
-→ `lib/combo_row.rb` · kind: widget · **missing**
+→ `lib/combo_row.rb` · kind: widget · **present**
 An `Adw.ComboRow` subclass that stops the popover truncating long items (it
 replaces the list factory). Used by the restore dialog.
 
@@ -465,7 +477,7 @@ groups sensitive on its inverse — `Adw.EntryRow` “Name”, `Adw.EntryRow`
 “Require Additional Authorization”, `Adw.EntryRow` “Additional Options”.
 
 ### `src/resources/ui/gdu-take-ownership-dialog.blp`
-→ `lib/take_ownership_dialog.rb` · kind: dialog · **missing**
+→ `lib/take_ownership_dialog.rb` · kind: dialog · **present**
 *Top-level named object, no backing `.c` of its own (driven from
 `gdu-block-row.c`).* `Adw.AlertDialog` `ownership_dialog` heading “Take
 Ownership?”, responses `cancel` “_Cancel” and `confirm` “_Take Ownership”
@@ -480,7 +492,7 @@ and a suffix `Gtk.Switch` `recursive_switch` (`notify::active`).
 ## 5. Shared dialog helpers
 
 ### `src/libgdu/gduutils.c` + `src/libgdu/gduutils.rs`
-→ `lib/utils.rb` · kind: helpers + 3 dialogs · **missing**
+→ `lib/utils.rb` · kind: helpers + 3 dialogs · **present** (helpers and the three dialogs)
 
 Three user-facing dialogs every other unit calls, so they belong in one file:
 - `gdu_utils_show_error (parent, title, error)` — `Adw.AlertDialog`, heading
@@ -498,7 +510,7 @@ option editors, `can_resize` / `can_repair` / `can_format` /
 `can_take_ownership` / `can_check`, `max_label_length`, `unfuse_path`.
 
 ### `src/resources/style.css`
-→ `lib/style.rb` (a `Gtk::CssProvider` loaded at startup) · kind: stylesheet · **missing**
+→ `lib/style.rb` (a `Gtk::CssProvider` loaded at startup) · kind: stylesheet · **present**
 Classes defined: `.space-allocation-bar`, `.partition-bin`, `.partition-row`,
 `.explanation-label`, and the 8 partition colours `.blue`, `.brown`,
 `.green`, `.grey`, `.orange`, `.purple`, `.red`, `.yellow`. The `strength-*`
@@ -582,16 +594,16 @@ but is **loaded by no source file**. Record it as dead and skip it.
 
 | # | Upstream | `lib/*.rb` | Kind | Exists |
 |--:|---|---|---|:-:|
-| 1 | `src/disks/main.c` | `lib/main.rb` | entry point | no |
+| 1 | `src/disks/main.c` | `lib/main.rb` | entry point | yes |
 | 2 | `src/disks/gdu-application.c` | `lib/application.rb` | application | partial |
-| 3 | `src/resources/ui/gdu-window.blp` + `gdu-window.c` | `lib/window.rb` | window | no |
-| 4 | `src/resources/ui/shortcuts-dialog.blp` | `lib/shortcuts_dialog.rb` | dialog | no |
+| 3 | `src/resources/ui/gdu-window.blp` + `gdu-window.c` | `lib/window.rb` | window | yes |
+| 4 | `src/resources/ui/shortcuts-dialog.blp` | `lib/shortcuts_dialog.rb` | dialog | yes |
 | 5 | `gdu-drive-view.blp` + `.c` | `lib/drive_view.rb` | page + dialog | no |
 | 6 | `gdu-drive-header.blp` + `.c` | `lib/drive_header.rb` | widget + menu | no |
-| 7 | `gdu-drive-row.blp` + `.c` | `lib/drive_row.rb` | row | no |
+| 7 | `gdu-drive-row.blp` + `.c` | `lib/drive_row.rb` | row | yes |
 | 8 | `gdu-block-row.blp` + `.c` | `lib/block_row.rb` | row + menu | no |
-| 9 | `gdu-space-allocation-bar.c` | `lib/space_allocation_bar.rb` | widget | no |
-| 10 | `gdu-job-row.blp` + `.c` | `lib/job_row.rb` | row | no |
+| 9 | `gdu-space-allocation-bar.c` | `lib/space_allocation_bar.rb` | widget | yes |
+| 10 | `gdu-job-row.blp` + `.c` | `lib/job_row.rb` | row | yes |
 | 11 | `gdu-format-disk-dialog.blp` + `.c` | `lib/format_disk_dialog.rb` | dialog | no |
 | 12 | `gdu-benchmark-dialog.blp` + `.c` | `lib/benchmark_dialog.rb` | dialog | no |
 | 13 | `gdu-benchmark-dialog.c` (`GduBenchmarkGraph`) | `lib/benchmark_graph.rb` | widget | no |
@@ -599,7 +611,7 @@ but is **loaded by no source file**. Record it as dead and skip it.
 | 15 | `gdu-disk-settings-dialog.blp` + `.c` | `lib/disk_settings_dialog.rb` | dialog | no |
 | 16 | `gdu-create-disk-image-dialog.blp` + `.c` | `lib/create_disk_image_dialog.rb` | dialog | no |
 | 17 | `gdu-restore-disk-image-dialog.blp` + `restore_disk_image_dialog.rs` | `lib/restore_disk_image_dialog.rb` | dialog | no |
-| 18 | `gdu_combo_row.rs` | `lib/combo_row.rb` | widget | no |
+| 18 | `gdu_combo_row.rs` | `lib/combo_row.rb` | widget | yes |
 | 19 | `gdu-new-disk-image-dialog.blp` + `.c` | `lib/new_disk_image_dialog.rb` | dialog | no |
 | 20 | `gdu-attach-disk-image-dialog.blp` + `.c` | `lib/attach_disk_image_dialog.rb` | dialog | no |
 | 21 | `gdu-format-volume-dialog.blp` + `.c` | `lib/format_volume_dialog.rb` | dialog (wizard) | no |
@@ -615,19 +627,19 @@ but is **loaded by no source file**. Record it as dead and skip it.
 | 31 | `gdu-unlock-dialog.blp` + `.c` | `lib/unlock_dialog.rb` | dialog | no |
 | 32 | `gdu-mount-options-dialog.blp` + `.c` | `lib/mount_options_dialog.rb` | dialog | no |
 | 33 | `gdu-encryption-options-dialog.blp` + `.c` | `lib/encryption_options_dialog.rb` | dialog | no |
-| 34 | `gdu-take-ownership-dialog.blp` | `lib/take_ownership_dialog.rb` | dialog | no |
-| 35 | `src/libgdu/gduutils.c` + `.rs` | `lib/utils.rb` | helpers + 3 dialogs | no |
-| 36 | `src/resources/style.css` | `lib/style.rb` | stylesheet | no |
+| 34 | `gdu-take-ownership-dialog.blp` | `lib/take_ownership_dialog.rb` | dialog | yes |
+| 35 | `src/libgdu/gduutils.c` + `.rs` | `lib/utils.rb` | helpers + 3 dialogs | yes |
+| 36 | `src/resources/style.css` | `lib/style.rb` | stylesheet | yes |
 | 37 | `src/disk-image-mounter/application.rs` + `main.rs` | `lib/image_mounter_application.rb` | application | no |
 | 38 | `gdu-image-mounter-window.blp` + `window.rs` | `lib/image_mounter_window.rb` | window | no |
 | 39 | `src/notify/gdusdmonitor.c` + `main.c` | `lib/sd_monitor.rb` | notifier | no |
 | 40 | `src/disks/gdu-manager.c` | `lib/manager.rb` | model | no |
-| 41 | `src/disks/gdu-item.c` | `lib/item.rb` | model | no |
+| 41 | `src/disks/gdu-item.c` | `lib/item.rb` | model | yes |
 | 42 | `src/disks/gdu-drive.c` | `lib/drive.rb` | model | no |
 | 43 | `src/disks/gdu-block.c` | `lib/block.rb` | model | no |
-| 44 | `gdu-job-manager.c` + `gdulocaljob.c` | `lib/job_manager.rb`, `lib/local_job.rb` | model | no |
-| 45 | `gduestimator.c` + `estimator.rs` | `lib/estimator.rb` | model | no |
-| 46 | `src/libgdu/enums.rs` + `gduenums.h` | `lib/enums.rb` | model | no |
+| 44 | `gdu-job-manager.c` + `gdulocaljob.c` | `lib/job_manager.rb`, `lib/local_job.rb` | model | yes |
+| 45 | `gduestimator.c` + `estimator.rs` | `lib/estimator.rb` | model | yes |
+| 46 | `src/libgdu/enums.rs` + `gduenums.h` | `lib/enums.rb` | model | yes |
 | — | `erase-multiple-disks-dialog.ui` | — | dead | n/a |
 
 ## Blockers to settle before any port unit is written
@@ -640,11 +652,10 @@ but is **loaded by no source file**. Record it as dead and skip it.
    `udisksctl`/D-Bus (`Gio::DBusProxy`) directly, or ship a fake device
    layer for the UI units. Until this is chosen, every unit past the window
    shell is blocked on data.
-2. **The port's file layout does not match the house shape.** The existing
-   scaffold is `lib/gnome_disk_utility/application.rb` inside a
-   `GnomeDiskUtility` module; the pilot is flat `lib/<thing>.rb` with classes
-   subclassing Adwaita widgets directly. Pick one before the second file
-   lands — this inventory assumes the pilot's flat layout.
+2. ~~**The port's file layout does not match the house shape.**~~ *Settled:*
+   the port uses the pilot's flat `lib/<thing>.rb` layout with classes
+   subclassing Adwaita widgets directly. `lib/gnome_disk_utility/application.rb`
+   stays only as the kettle-jem packaging scaffold and is not the app.
 3. **Two upstream action gaps not to copy.** `app.shortcuts` is referenced by
    the main menu and an accel but never installed, and none of the ten
    `win.*` accelerated actions exists anywhere. The port should install both
