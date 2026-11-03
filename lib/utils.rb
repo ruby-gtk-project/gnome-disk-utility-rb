@@ -40,6 +40,13 @@ module Utils
   USEC_PER_MONTH = USEC_PER_YEAR / 12.0
   USEC_PER_MSEC = 1_000
 
+  # The UDisks service, and the one object on it the helpers below talk to.
+  UDISKS_NAME = 'org.freedesktop.UDisks2'
+  UDISKS_MANAGER_PATH = '/org/freedesktop/UDisks2/Manager'
+  UDISKS_MANAGER_INTERFACE = 'org.freedesktop.UDisks2.Manager'
+  PROPERTIES_INTERFACE = 'org.freedesktop.DBus.Properties'
+  DBUS_TIMEOUT_DEFAULT = -1
+
   FormatDurationFlags = Enums::FormatDurationFlags
   UnitSize = Enums::UnitSize
 
@@ -425,6 +432,106 @@ module Utils
   # gdu_utils_can_take_ownership ().
   def self.can_take_ownership?(fstype)
     !['ntfs', 'vfat', 'exfat'].include?(fstype)
+  end
+
+  # gdu_utils_can_format (): whether mkfs for @fstype is installed on the
+  # daemon side, and the name of the missing utility when it is not. Returns
+  # [available, missing_util].
+  #
+  # Upstream reads UDisksManager's SupportedFilesystems property and calls
+  # CanFormat once per entry, caching the answers for the lifetime of the
+  # process unless asked to flush. There is no libudisks binding here, so the
+  # two go straight to the bus — they are a property read and a method call on
+  # org.freedesktop.UDisks2.Manager, and need nothing a UDisksClient adds.
+  #
+  # A filesystem UDisks does not list, or a bus that cannot be reached, gives
+  # [false, nil] — the same answer upstream's cache miss gives.
+  def self.can_format(fstype, flush: false)
+    if flush
+      @can_format_cache = nil
+    end
+
+    can_format_cache.fetch(fstype, [false, nil])
+  end
+
+  def self.can_format?(fstype) = can_format(fstype).first
+
+  def self.can_format_cache
+    @can_format_cache ||= supported_filesystems.to_h { |fs_type| [fs_type, query_can_format(fs_type)] }
+  end
+
+  # UDisksManager's SupportedFilesystems property.
+  def self.supported_filesystems
+    Array(udisks_manager_property('SupportedFilesystems'))
+  end
+
+  # UDisksManager.CanFormat (s) → (bs).
+  def self.query_can_format(fs_type)
+    call_udisks_manager('CanFormat', fs_type).then do |reply|
+      if reply.nil?
+        [false, nil]
+      else
+        reply.first
+      end
+    end
+  end
+
+  def self.udisks_manager_property(name)
+    call_udisks_manager(
+      'Get',
+      UDISKS_MANAGER_INTERFACE,
+      name,
+      interface: PROPERTIES_INTERFACE,
+    ).then do |reply|
+      reply&.first
+    end
+  end
+
+  # A synchronous call on the UDisks Manager object, or nil when the daemon is
+  # not there. Errors are swallowed because every caller treats "no answer" and
+  # "no support" alike, exactly as the cache miss above does.
+  def self.call_udisks_manager(method, *arguments, interface: UDISKS_MANAGER_INTERFACE)
+    system_bus&.call_sync(
+      UDISKS_NAME,
+      UDISKS_MANAGER_PATH,
+      interface,
+      method,
+      argument_tuple(arguments),
+      nil,
+      :none,
+      DBUS_TIMEOUT_DEFAULT,
+      nil,
+    )
+  rescue StandardError
+    nil
+  end
+
+  # GDBus wants the arguments as a tuple variant, and the Ruby bindings build a
+  # tuple only from its GVariant text form.
+  def self.argument_tuple(arguments)
+    if arguments.empty?
+      nil
+    else
+      arguments.map { |argument| argument.to_s.inspect }.then do |parts|
+        GLib::Variant.parse("(#{parts.join(',')}#{one_tuple_comma(parts)})")
+      end
+    end
+  end
+
+  # A one-element tuple's text form needs the trailing comma that tells it
+  # apart from a parenthesised value; a longer one must not have it.
+  def self.one_tuple_comma(parts)
+    if parts.one?
+      ','
+    else
+      ''
+    end
+  end
+
+  def self.system_bus
+    @system_bus ||= Gio.bus_get_sync(:system, nil)
+  rescue StandardError
+    nil
   end
 
   # gdu_utils_get_max_label_length (). G_MAXUINT means "no limit"; nil says the
