@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'adwaita'
+require 'gio2'
+require 'udisks'
 require 'json'
 require 'uri'
 require 'fileutils'
@@ -12,7 +14,7 @@ require_relative 'enums'
 # Ported from upstream's src/libgdu/gduutils.c and src/libgdu/gduutils.rs (the
 # two are kept in sync upstream; the C file carries the comment saying so).
 #
-# Three deliberate differences, all forced by libudisks having no Ruby binding:
+# Two deliberate differences:
 #
 #   * The helpers upstream hands a UDisksBlock, UDisksDrive or
 #     UDisksPartitionTable take the plain values they actually read instead —
@@ -39,13 +41,6 @@ module Utils
   USEC_PER_YEAR = USEC_PER_DAY * 365.25
   USEC_PER_MONTH = USEC_PER_YEAR / 12.0
   USEC_PER_MSEC = 1_000
-
-  # The UDisks service, and the one object on it the helpers below talk to.
-  UDISKS_NAME = 'org.freedesktop.UDisks2'
-  UDISKS_MANAGER_PATH = '/org/freedesktop/UDisks2/Manager'
-  UDISKS_MANAGER_INTERFACE = 'org.freedesktop.UDisks2.Manager'
-  PROPERTIES_INTERFACE = 'org.freedesktop.DBus.Properties'
-  DBUS_TIMEOUT_DEFAULT = -1
 
   FormatDurationFlags = Enums::FormatDurationFlags
   UnitSize = Enums::UnitSize
@@ -401,6 +396,9 @@ module Utils
     end
   end
 
+  # g_format_size (), used throughout the block/drive descriptions.
+  def self.format_size(size) = GLib.format_size(size)
+
   # gdu_utils_get_unused_for_block () / gdu_utils_get_total_size_for_block ():
   # -1 when the filesystem is not mounted or cannot be looked at.
   def self.unused_for_mount_point(mount_point)
@@ -440,12 +438,11 @@ module Utils
   #
   # Upstream reads UDisksManager's SupportedFilesystems property and calls
   # CanFormat once per entry, caching the answers for the lifetime of the
-  # process unless asked to flush. There is no libudisks binding here, so the
-  # two go straight to the bus — they are a property read and a method call on
-  # org.freedesktop.UDisks2.Manager, and need nothing a UDisksClient adds.
+  # process unless asked to flush. The `udisks` gem's generated UDisksManager
+  # proxy gives both directly, with no hand-rolled D-Bus call needed.
   #
-  # A filesystem UDisks does not list, or a bus that cannot be reached, gives
-  # [false, nil] — the same answer upstream's cache miss gives.
+  # A filesystem UDisks does not list, or a daemon that cannot be reached,
+  # gives [false, nil] — the same answer upstream's cache miss gives.
   def self.can_format(fstype, flush: false)
     if flush
       @can_format_cache = nil
@@ -462,74 +459,27 @@ module Utils
 
   # UDisksManager's SupportedFilesystems property.
   def self.supported_filesystems
-    Array(udisks_manager_property('SupportedFilesystems'))
+    Array(udisks_manager&.supported_filesystems)
   end
 
-  # UDisksManager.CanFormat (s) → (bs).
+  # UDisksManager.CanFormat (s) → (bs), via the generated proxy's blocking call.
   def self.query_can_format(fs_type)
-    call_udisks_manager('CanFormat', fs_type).then do |reply|
-      if reply.nil?
-        [false, nil]
-      else
-        reply.first
-      end
-    end
+    udisks_manager&.call_can_format_sync(fs_type) || [false, nil]
+  rescue StandardError
+    [false, nil]
   end
 
-  def self.udisks_manager_property(name)
-    call_udisks_manager(
-      'Get',
-      UDISKS_MANAGER_INTERFACE,
-      name,
-      interface: PROPERTIES_INTERFACE,
-    ).then do |reply|
-      reply&.first
-    end
-  end
-
-  # A synchronous call on the UDisks Manager object, or nil when the daemon is
-  # not there. Errors are swallowed because every caller treats "no answer" and
-  # "no support" alike, exactly as the cache miss above does.
-  def self.call_udisks_manager(method, *arguments, interface: UDISKS_MANAGER_INTERFACE)
-    system_bus&.call_sync(
-      UDISKS_NAME,
-      UDISKS_MANAGER_PATH,
-      interface,
-      method,
-      argument_tuple(arguments),
-      nil,
-      :none,
-      DBUS_TIMEOUT_DEFAULT,
-      nil,
-    )
+  # The one UDisksManager object the daemon publishes, or nil when the daemon
+  # cannot be reached.
+  def self.udisks_manager
+    @udisks_manager ||= udisks_client&.manager
   rescue StandardError
     nil
   end
 
-  # GDBus wants the arguments as a tuple variant, and the Ruby bindings build a
-  # tuple only from its GVariant text form.
-  def self.argument_tuple(arguments)
-    if arguments.empty?
-      nil
-    else
-      arguments.map { |argument| argument.to_s.inspect }.then do |parts|
-        GLib::Variant.parse("(#{parts.join(',')}#{one_tuple_comma(parts)})")
-      end
-    end
-  end
-
-  # A one-element tuple's text form needs the trailing comma that tells it
-  # apart from a parenthesised value; a longer one must not have it.
-  def self.one_tuple_comma(parts)
-    if parts.one?
-      ','
-    else
-      ''
-    end
-  end
-
-  def self.system_bus
-    @system_bus ||= Gio.bus_get_sync(:system, nil)
+  # The shared UDisksClient every model and helper in this file talks through.
+  def self.udisks_client
+    @udisks_client ||= UDisks::Client.new
   rescue StandardError
     nil
   end

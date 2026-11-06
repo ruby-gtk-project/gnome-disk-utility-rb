@@ -25,6 +25,7 @@
           libadwaita
           harfbuzz
           librsvg
+          udisks2
         ]
         # The Ruby `pkg-config` gem resolves `Requires.private` transitively and
         # hard-fails if any .pc in the chain is missing, so gtk4's whole private

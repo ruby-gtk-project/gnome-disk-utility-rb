@@ -96,6 +96,14 @@ Gem::Specification.new do |spec|
   spec.executables = ["gnome-disk-utility"]
   spec.require_paths = ["lib"]
 
+  # Runtime: the GTK4/Libadwaita toolkit this app is built on, and the UDisks
+  # binding the disk/drive/block models are built on. See nix/Gemfile for the
+  # packaged runtime closure these resolve into.
+  spec.add_dependency("gtk4")
+  spec.add_dependency("adwaita")
+  spec.add_dependency("glib2")
+  spec.add_dependency("udisks")
+
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased
   #       visibility and discoverability.
   #       However, development dependencies in gemspec will install on

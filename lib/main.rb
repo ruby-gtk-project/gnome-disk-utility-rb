@@ -5,6 +5,7 @@ require 'adwaita'
 require_relative 'enums'
 require_relative 'item'
 require_relative 'job_manager'
+require_relative 'manager'
 require_relative 'shortcuts_dialog'
 require_relative 'style'
 require_relative 'utils'
@@ -66,13 +67,15 @@ class App
     'restore-disk-image' => [:filename, 'Restore disk image', 'FILE'],
   }.freeze
 
-  attr_reader :job_manager
+  attr_reader :job_manager, :manager
 
-  # @param drives the list model of Drive objects the sidebar binds to.
-  #   Upstream takes this from GduManager, which is not ported yet; until it is,
-  #   the caller supplies the model and the sidebar shows whatever is in it.
-  def initialize(drives: nil, job_manager: nil)
-    @drives = drives || Gio::ListStore.new(Item)
+  # @param manager the Manager (gdu_manager_get_default ()) whose #drives the
+  #   sidebar binds to. Defaults to Manager.default, which opens the real
+  #   UDisksClient; a caller that wants to run without a live UDisks daemon
+  #   (a spec, or a drive script) passes its own Manager instead.
+  def initialize(manager: nil, job_manager: nil)
+    @manager = manager || Manager.default
+    @drives = @manager.drives
     @job_manager = job_manager || JobManager.new
   end
 
