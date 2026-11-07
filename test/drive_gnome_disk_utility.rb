@@ -89,8 +89,9 @@ class AppDriverAdapter
 end
 
 # A minimal concrete Item, standing in for a real UDisks-backed Drive. Only
-# the vtable slots the sidebar and the space allocation bar actually read are
-# overridden, exactly the subset DriveRow and SpaceAllocationBar use.
+# the vtable slots the sidebar, the space allocation bar and DriveView
+# actually read are overridden, exactly the subset DriveRow,
+# SpaceAllocationBar and DriveView use.
 class FakeDrive < Item
   type_register
 
@@ -108,6 +109,12 @@ class FakeDrive < Item
   def icon = Gio::ThemedIcon.new("drive-harddisk-symbolic")
   def size = 1_000_000
   def partitions = @partitions
+  def model = "Fake Model"
+  def serial = "FAKE123"
+  def partition_type = "—"
+  def features = Enums::Feature::NONE
+  def client = nil
+  def object_for_format = nil
 end
 
 # A tiny duck for Utils.add_option/remove_option/option?, which only ever call
@@ -174,7 +181,7 @@ GtkDriver.drive(AppDriverAdapter.new(app), shots: SHOTS) do |d, adapter|
     manager.drives.append(FakeDrive.new)
   end
 
-  d.step("the row reflects the drive and selection still can't open a page") do
+  d.step("the row reflects the drive and selecting it opens the drive page") do
     win = adapter.app.window
     d.check("one row now") { manager.drives.n_items == 1 }
     row = win.send(:drives_listbox).get_row_at_index(0)
@@ -183,9 +190,10 @@ GtkDriver.drive(AppDriverAdapter.new(app), shots: SHOTS) do |d, adapter|
     d.check("its subtitle is the drive's name") { row.subtitle == "/dev/fake" }
     win.send(:drives_listbox).select_row(row)
     win.on_selection_changed
-    d.check("no drive_view was injected, so selecting stays on the empty page") do
-      win.send(:main_stack).visible_child_name == Window::EMPTY_PAGE
+    d.check("App injected a DriveView, so selecting switches to the drive page") do
+      win.send(:main_stack).visible_child_name == Window::DRIVE_PAGE
     end
+    d.check("the drive view picked up the selected row's drive") { win.drive_view.drive == row.drive }
     d.shot("02-one-drive")
   end
 

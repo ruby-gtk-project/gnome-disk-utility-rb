@@ -178,6 +178,12 @@ class Block < Item
       end
     end
 
+    # gdu_block_get_features ()'s TAKE_OWNERSHIP bit: a mounted, writable
+    # filesystem of a type gdu_utils_can_take_ownership allows.
+    def take_ownership?
+      !block.nil? && !block.read_only? && Utils.can_take_ownership?(block.id_type)
+    end
+
     def object_partition_type
       if partition.nil?
         id = client.get_id_for_display(block&.id_usage, block&.id_type, block&.id_version, true)
@@ -194,8 +200,15 @@ class Block < Item
       features = Enums::Feature::NONE
       features |= Enums::Feature::EDIT_PARTITION | Enums::Feature::DELETE_PARTITION unless partition.nil?
       features |= Enums::Feature::EDIT_LABEL if block && !block.read_only?
-      features |= Enums::Feature::CAN_MOUNT | Enums::Feature::CAN_UNMOUNT if file_system
+      if file_system
+        features |= if mount_points.empty?
+                      Enums::Feature::CAN_MOUNT
+                    else
+                      Enums::Feature::CAN_UNMOUNT
+                    end
+      end
       features |= Enums::Feature::CHECK_FILESYSTEM | Enums::Feature::REPAIR_FILESYSTEM if file_system
+      features |= Enums::Feature::TAKE_OWNERSHIP if take_ownership?
       features
     end
 end

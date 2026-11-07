@@ -105,6 +105,12 @@ class Drive < Item
 
   def serial = udrive&.serial || UNKNOWN
 
+  # gdu_drive_get_object_for_format (): the partition-table object when the
+  # drive has one, else the drive's own object — what DriveHeader's
+  # "Format Disk…"/"Create Disk Image…" actions and FormatVolumeDialog hand
+  # UDisks.
+  def object_for_format = partition_table_object || object
+
   # gdu_drive_get_siblings (): the UDisksObjects for this drive's siblings.
   def siblings
     return [] if udrive.nil?

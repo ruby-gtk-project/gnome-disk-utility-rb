@@ -2,6 +2,7 @@
 
 require 'adwaita'
 
+require_relative 'drive_view'
 require_relative 'enums'
 require_relative 'item'
 require_relative 'job_manager'
@@ -112,11 +113,14 @@ class App
       app,
       drives:      @drives,
       job_manager: @job_manager,
+      drive_view:  drive_view.build,
     ).tap do |win|
       win.signal_connect('close-request') { on_close_request }
       win.insert_action_group('win', window_actions)
     end
   end
+
+  def drive_view = @drive_view ||= DriveView.new
 
   # --- Actions ------------------------------------------------------------
 

@@ -22,22 +22,33 @@ Counts: 34 upstream UI units (29 blueprint, 2 GtkBuilder `.ui`, 3 code-only
 widgets), plus the model layer, the stylesheet, the second app and the
 notifier — 46 mapped port files in the summary table below.
 
-Parity as of this revision: **22 of 46 present** — `lib/main.rb`,
+Parity as of this revision: **28 of 46 present** — `lib/main.rb`,
 `lib/window.rb`, `lib/shortcuts_dialog.rb`, `lib/drive_row.rb`,
 `lib/job_row.rb`, `lib/space_allocation_bar.rb`, `lib/combo_row.rb`,
 `lib/take_ownership_dialog.rb`, `lib/utils.rb`, `lib/style.rb`,
 `lib/item.rb`, `lib/job_manager.rb` + `lib/local_job.rb`,
-`lib/estimator.rb`, `lib/enums.rb`, plus the model layer
-(`lib/manager.rb`, `lib/drive.rb`, `lib/block.rb`) and four of the five
-format-volume-dialog wizard pages (`lib/create_partition_page.rb`,
-`lib/create_filesystem_page.rb`, `lib/create_other_page.rb`,
-`lib/create_confirm_page.rb`), added since the previous revision of this
-report. `lib/gnome_disk_utility/application.rb` remains the kettle-jem
-scaffold placeholder; the app proper is `lib/main.rb` and still has no
-`lib/application.rb` of its own. Still missing: the drive view and its
-header, the block row, the fifth wizard page (`create_password_page`), all
-19 remaining drive- and volume-level dialogs, `lib/benchmark_graph.rb`, the
-Disk Image Mounter app and the notifier.
+`lib/estimator.rb`, `lib/enums.rb`, the model layer (`lib/manager.rb`,
+`lib/drive.rb`, `lib/block.rb`), all five format-volume-dialog wizard pages
+(`lib/create_partition_page.rb`, `lib/create_filesystem_page.rb`,
+`lib/create_other_page.rb`, `lib/create_confirm_page.rb`,
+`lib/create_password_page.rb`), the wizard dialog itself
+(`lib/format_volume_dialog.rb`), and the drive view and its dependents
+(`lib/drive_view.rb`, `lib/drive_header.rb`, `lib/block_row.rb`), all added
+since the previous revision of this report and wired into `lib/main.rb` and
+`lib/window.rb` so selecting a drive in the sidebar now opens it.
+`lib/gnome_disk_utility/application.rb` remains the kettle-jem scaffold
+placeholder; the app proper is `lib/main.rb` and still has no
+`lib/application.rb` of its own. Of DriveHeader/DriveView/BlockRow's `view.*`
+and `row.*` actions, only format, create-partition, mount, unmount,
+take-ownership and show-drive-dialog are wired to real UDisks calls or an
+existing dialog; the rest reference actions GTK renders disabled because the
+dialog behind them (benchmark, SMART, disk settings, resize, edit-partition,
+edit-filesystem, change-passphrase, mount/encryption options, check/repair
+filesystem, create/restore disk or partition image) is not ported yet, or
+because Drive's standby/wakeup/detach/eject/power-off methods are not ported
+yet (see `lib/drive.rb`'s class comment). Still missing: the remaining 18
+drive- and volume-level dialogs, `lib/benchmark_graph.rb`, the Disk Image
+Mounter app and the notifier.
 
 ---
 
@@ -603,10 +614,10 @@ but is **loaded by no source file**. Record it as dead and skip it.
 | 2 | `src/disks/gdu-application.c` | `lib/application.rb` | application | partial |
 | 3 | `src/resources/ui/gdu-window.blp` + `gdu-window.c` | `lib/window.rb` | window | yes |
 | 4 | `src/resources/ui/shortcuts-dialog.blp` | `lib/shortcuts_dialog.rb` | dialog | yes |
-| 5 | `gdu-drive-view.blp` + `.c` | `lib/drive_view.rb` | page + dialog | no |
-| 6 | `gdu-drive-header.blp` + `.c` | `lib/drive_header.rb` | widget + menu | no |
+| 5 | `gdu-drive-view.blp` + `.c` | `lib/drive_view.rb` | page + dialog | yes — only `view.format` and `view.show-drive-dialog` are wired; the rest reference actions GTK renders disabled |
+| 6 | `gdu-drive-header.blp` + `.c` | `lib/drive_header.rb` | widget + menu | yes |
 | 7 | `gdu-drive-row.blp` + `.c` | `lib/drive_row.rb` | row | yes |
-| 8 | `gdu-block-row.blp` + `.c` | `lib/block_row.rb` | row + menu | no |
+| 8 | `gdu-block-row.blp` + `.c` | `lib/block_row.rb` | row + menu | yes — only `row.create_partition`, `row.mount`, `row.unmount`, `row.take_ownership`, `row.format_partition` and `row.delete` are wired; the rest reference actions GTK renders disabled |
 | 9 | `gdu-space-allocation-bar.c` | `lib/space_allocation_bar.rb` | widget | yes |
 | 10 | `gdu-job-row.blp` + `.c` | `lib/job_row.rb` | row | yes |
 | 11 | `gdu-format-disk-dialog.blp` + `.c` | `lib/format_disk_dialog.rb` | dialog | no |
@@ -619,11 +630,11 @@ but is **loaded by no source file**. Record it as dead and skip it.
 | 18 | `gdu_combo_row.rs` | `lib/combo_row.rb` | widget | yes |
 | 19 | `gdu-new-disk-image-dialog.blp` + `.c` | `lib/new_disk_image_dialog.rb` | dialog | no |
 | 20 | `gdu-attach-disk-image-dialog.blp` + `.c` | `lib/attach_disk_image_dialog.rb` | dialog | no |
-| 21 | `gdu-format-volume-dialog.blp` + `.c` | `lib/format_volume_dialog.rb` | dialog (wizard) | no |
+| 21 | `gdu-format-volume-dialog.blp` + `.c` | `lib/format_volume_dialog.rb` | dialog (wizard) | yes |
 | 22 | `gdu-create-partition-page.blp` + `.c` | `lib/create_partition_page.rb` | page | yes |
 | 23 | `gdu-create-filesystem-page.blp` + `.c` | `lib/create_filesystem_page.rb` | page | yes |
 | 24 | `gdu-create-other-page.blp` + `.c` | `lib/create_other_page.rb` | page | yes |
-| 25 | `gdu-create-password-page.blp` + `.c` | `lib/create_password_page.rb` | page | no |
+| 25 | `gdu-create-password-page.blp` + `.c` | `lib/create_password_page.rb` | page | yes |
 | 26 | `gdu-create-confirm-page.blp` + `.c` | `lib/create_confirm_page.rb` | page | yes |
 | 27 | `gdu-edit-filesystem-dialog.blp` + `.c` | `lib/edit_filesystem_dialog.rb` | dialog | no |
 | 28 | `gdu-edit-partition-dialog.blp` + `.c` | `lib/edit_partition_dialog.rb` | dialog | no |
