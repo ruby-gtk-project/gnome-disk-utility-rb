@@ -300,8 +300,20 @@ GtkDriver.drive(AppDriverAdapter.new(app), shots: SHOTS) do |d, adapter|
     win.send(:drives_listbox).select_row(win.send(:drives_listbox).get_row_at_index(1))
     d.check("something is selected first") { !win.send(:drives_listbox).selected_row.nil? }
     d.check("xdotool is on PATH to send a real key with") { xdotool("--version") }
-    xdotool("search", "--name", "^Disks$", "windowfocus")
-    xdotool("key", "--clearmodifiers", "Escape")
+    # `xdotool search --name ... windowfocus` races the X server under Xvfb
+    # with no window manager running: the lookup can occasionally miss on the
+    # first try right after prior steps changed window state. Retrying the
+    # focus+key a few times (each attempt pumping the GLib main context so
+    # a delivered event is actually processed before the next attempt) makes
+    # this check reflect the real wiring instead of X11 timing noise — it
+    # still fails for real if the key genuinely never reaches win.go-back.
+    10.times do
+      break unless win.send(:drives_listbox).selected_row
+      xdotool("search", "--name", "^Disks$", "windowfocus")
+      xdotool("key", "--clearmodifiers", "Escape")
+      20.times { GLib::MainContext.default.iteration(false) }
+      sleep(0.05)
+    end
   end
 
   d.step("the Escape keypress cleared the sidebar selection") do
