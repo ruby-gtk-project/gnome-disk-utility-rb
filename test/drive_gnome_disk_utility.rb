@@ -658,20 +658,15 @@ GtkDriver.drive(AppDriverAdapter.new(app), shots: SHOTS) do |d, adapter|
     @fs_page.fs_type = CreateFilesystemPage::OTHER
     d.check("fs_type=OTHER is reported by #other?") { @fs_page.other? }
 
-    # Left failing on purpose. disable_unavailable_types sets
-    # ntfs_check_button.sensitive = false at build time, and that holds right
-    # up until the page is realized in a real window (confirmed: it is still
-    # false immediately after #build, with no window at all) — at which
-    # point GTK re-syncs every GtkCheckButton bound through action-name to
-    # its shared property action's "enabled" state, which is always true
-    # for this action (it is one action covering all four radio choices, not
-    # a per-row enabled flag), clobbering the manual sensitive=false the
-    # moment the row is mapped. The row's tooltip ("The utility ... is
-    # missing.") still reads correctly; only the insensitive/greyed-out
-    # presentation upstream's gdu_create_filesystem_page_new disables each
-    # unavailable row with is lost once the page is actually shown. Fixing it
-    # needs each row to carry its own enabled state rather than share one
-    # property action across all four — out of scope for this pass.
+    # Was left failing: disable_unavailable_types set ntfs_check_button.
+    # sensitive = false at build time, which held right up until the page was
+    # realized in a real window, at which point GTK re-synced every
+    # GtkCheckButton bound through action-name to its shared property
+    # action's "enabled" state (always true, since it is one action covering
+    # all four radio choices, not a per-row enabled flag), clobbering the
+    # manual sensitive=false the moment the row was mapped. Fixed in
+    # CreateFilesystemPage#disable_check_button by reapplying sensitive=false
+    # on the check button's own 'map' signal, which runs after GTK's sync.
     d.check("every type row the daemon cannot format stays disabled once realized") do
       [@fs_page.send(:ntfs_check_button), @fs_page.send(:fat_check_button)].all? { |b| !b.sensitive? }
     end

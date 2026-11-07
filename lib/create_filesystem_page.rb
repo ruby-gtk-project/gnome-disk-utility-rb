@@ -205,15 +205,35 @@ class CreateFilesystemPage < Adwaita::Bin
     # The two gdu_utils_can_format () checks the constructor makes. Ext4 and
     # "Other" are never disabled here — "Other" has a page of its own that
     # checks each of its types.
+    #
+    # All four check buttons are bound, via action_name, to the one shared
+    # `update_fs_type` property action (that is what makes them act as a
+    # single radio group). GTK syncs a GtkActionable's `sensitive` from its
+    # bound action's `enabled` the moment the widget is mapped, and that
+    # action's `enabled` is always true — it is one action covering four
+    # targets, not a per-row flag — which clobbers a manual
+    # `sensitive = false` set here as soon as the row is actually shown in a
+    # window. Reapplying on `map` (fired after GTK's own sync, since map
+    # handlers run bottom-up after the widget is mapped) keeps the row
+    # disabled where upstream's gdu_create_filesystem_page_new disables each
+    # row independently and permanently.
     def disable_unavailable_types
       { NTFS => ntfs_check_button, FAT => fat_check_button }.each do |fs_type, check_button|
         Utils.can_format(fs_type).then do |available, missing_util|
           unless available
-            check_button.sensitive = false
-            check_button.tooltip_text = "The utility #{missing_util} is missing."
+            disable_check_button(check_button, missing_util)
           end
         end
       end
+    end
+
+    def disable_check_button(check_button, missing_util)
+      apply = lambda do
+        check_button.sensitive = false
+        check_button.tooltip_text = "The utility #{missing_util} is missing."
+      end
+      apply.call
+      check_button.signal_connect('map') { apply.call }
     end
 
     # on_fs_name_changed ().
