@@ -22,17 +22,22 @@ Counts: 34 upstream UI units (29 blueprint, 2 GtkBuilder `.ui`, 3 code-only
 widgets), plus the model layer, the stylesheet, the second app and the
 notifier — 46 mapped port files in the summary table below.
 
-Parity as of this revision: **14 of 46 present** — `lib/main.rb`,
+Parity as of this revision: **22 of 46 present** — `lib/main.rb`,
 `lib/window.rb`, `lib/shortcuts_dialog.rb`, `lib/drive_row.rb`,
 `lib/job_row.rb`, `lib/space_allocation_bar.rb`, `lib/combo_row.rb`,
 `lib/take_ownership_dialog.rb`, `lib/utils.rb`, `lib/style.rb`,
 `lib/item.rb`, `lib/job_manager.rb` + `lib/local_job.rb`,
-`lib/estimator.rb`, `lib/enums.rb`. `lib/gnome_disk_utility/application.rb`
-remains the kettle-jem scaffold placeholder; the app proper is `lib/main.rb`.
-Everything else below is still missing: the drive view and its header, the
-block row, all 23 drive- and volume-level dialogs and wizard pages, the model
-layer (`manager`, `drive`, `block`), the Disk Image Mounter app and the
-notifier.
+`lib/estimator.rb`, `lib/enums.rb`, plus the model layer
+(`lib/manager.rb`, `lib/drive.rb`, `lib/block.rb`) and four of the five
+format-volume-dialog wizard pages (`lib/create_partition_page.rb`,
+`lib/create_filesystem_page.rb`, `lib/create_other_page.rb`,
+`lib/create_confirm_page.rb`), added since the previous revision of this
+report. `lib/gnome_disk_utility/application.rb` remains the kettle-jem
+scaffold placeholder; the app proper is `lib/main.rb` and still has no
+`lib/application.rb` of its own. Still missing: the drive view and its
+header, the block row, the fifth wizard page (`create_password_page`), all
+19 remaining drive- and volume-level dialogs, `lib/benchmark_graph.rb`, the
+Disk Image Mounter app and the notifier.
 
 ---
 
@@ -384,11 +389,11 @@ Its five pages, each its own unit:
 
 | Upstream | → | Contents |
 |---|---|---|
-| `gdu-create-partition-page.blp` + `.c` | `lib/create_partition_page.rb` | `Adw.Bin` → `Gtk.Box` with `Adw.Banner` `top_banner`, `Adw.PreferencesPage`: a `Gtk.Scale` over `size_adjustment`; `Adw.SpinRow` `size_row` “Partition Size” and `Adw.SpinRow` `free_space_row` “Free Space”/“Space following new partition” (both `output => set_size_entry_unit_cb`, adjustments cross-bound, `value-changed => on_size_changed_cb`); a group holding `Adw.SwitchRow` `dos_extended_row` “Extended Partition” (hidden unless MBR, `notify::active => on_part_type_changed`); `Adw.ComboRow` `size_unit_combo` “Units” over the 11-unit `Gtk.StringList` |
-| `gdu-create-filesystem-page.blp` + `.c` | `lib/create_filesystem_page.rb` | `Adw.Bin` (`notify::fs-type`) → `Adw.EntryRow` `name_entry` “_Volume Name” (`apply => on_fs_name_changed`); an `Adw.ActionRow` “_Overwrite Existing Data” with flat `help-about-symbolic` `Gtk.MenuButton` + `Gtk.Popover` + `Gtk.Label` and a suffix `Gtk.Switch` `erase_switch`; a “Type” group of 4 `Adw.ActionRow`s each with a prefix `Gtk.CheckButton` on action `update_fs_type` with targets `'ext4'`, `'ntfs'`, `'vfat'`, `'other'` (“E_xt4” / “For use only with Linux systems”, “N_TFS” / “For use with Windows”, “_FAT” / “For use with all systems and devices”, “Ot_her”); `Adw.SwitchRow` `encrypt_switch` “_Password Protect Volume” / “Encrypts the volume using LUKS”, sensitive only when ext4 |
-| `gdu-create-other-page.blp` + `.c` | `lib/create_other_page.rb` | `Adw.Bin` → `Adw.PreferencesGroup` `fs_types_group` “Type” — a **repeater**: one `Adw.ActionRow` + prefix `Gtk.CheckButton` per filesystem type built in `.c` (xfs, swap, btrfs, f2fs, exfat, udf, empty, dos-extended, …) — plus `Adw.SwitchRow` `encrypt_switch` “Password Protect Volume” |
-| `gdu-create-password-page.blp` + `.c` | `lib/create_password_page.rb` | `Adw.Bin` → group with description; `Adw.PasswordEntryRow` `password_entry` “Password” and `confirm_password_entry` “Confirm Password” (both `notify::text => on_password_changed`); `Gtk.Label` `confirm_password_label` “The passwords do not match.” (hidden until needed — an **error state**); `Gtk.LevelBar` `strength_indicator` (continuous, max 5) with offsets `strength-weak`, `strength-low`, `strength-medium`, `strength-good`, `strength-high`; `Gtk.Label` `strength_hint_label` (`dim-label explanation-label`) |
-| `gdu-create-confirm-page.blp` + `.c` | `lib/create_confirm_page.rb` | `Adw.Bin` (400 wide) → `Adw.Banner` “Warning: All the data on the volume will be lost” (revealed), a `Gtk.Label` “Confirm the details…”, and 4 `Adw.ActionRow`s (`property`): Device, Volume, Used (hidden unless known), Location |
+| `gdu-create-partition-page.blp` + `.c` | `lib/create_partition_page.rb` **(present)** | `Adw.Bin` → `Gtk.Box` with `Adw.Banner` `top_banner`, `Adw.PreferencesPage`: a `Gtk.Scale` over `size_adjustment`; `Adw.SpinRow` `size_row` “Partition Size” and `Adw.SpinRow` `free_space_row` “Free Space”/“Space following new partition” (both `output => set_size_entry_unit_cb`, adjustments cross-bound, `value-changed => on_size_changed_cb`); a group holding `Adw.SwitchRow` `dos_extended_row` “Extended Partition” (hidden unless MBR, `notify::active => on_part_type_changed`); `Adw.ComboRow` `size_unit_combo` “Units” over the 11-unit `Gtk.StringList` |
+| `gdu-create-filesystem-page.blp` + `.c` | `lib/create_filesystem_page.rb` **(present)** | `Adw.Bin` (`notify::fs-type`) → `Adw.EntryRow` `name_entry` “_Volume Name” (`apply => on_fs_name_changed`); an `Adw.ActionRow` “_Overwrite Existing Data” with flat `help-about-symbolic` `Gtk.MenuButton` + `Gtk.Popover` + `Gtk.Label` and a suffix `Gtk.Switch` `erase_switch`; a “Type” group of 4 `Adw.ActionRow`s each with a prefix `Gtk.CheckButton` on action `update_fs_type` with targets `'ext4'`, `'ntfs'`, `'vfat'`, `'other'` (“E_xt4” / “For use only with Linux systems”, “N_TFS” / “For use with Windows”, “_FAT” / “For use with all systems and devices”, “Ot_her”); `Adw.SwitchRow` `encrypt_switch` “_Password Protect Volume” / “Encrypts the volume using LUKS”, sensitive only when ext4 |
+| `gdu-create-other-page.blp` + `.c` | `lib/create_other_page.rb` **(present)** | `Adw.Bin` → `Adw.PreferencesGroup` `fs_types_group` “Type” — a **repeater**: one `Adw.ActionRow` + prefix `Gtk.CheckButton` per filesystem type built in `.c` (xfs, swap, btrfs, f2fs, exfat, udf, empty, dos-extended, …) — plus `Adw.SwitchRow` `encrypt_switch` “Password Protect Volume” |
+| `gdu-create-password-page.blp` + `.c` | `lib/create_password_page.rb` (missing) | `Adw.Bin` → group with description; `Adw.PasswordEntryRow` `password_entry` “Password” and `confirm_password_entry` “Confirm Password” (both `notify::text => on_password_changed`); `Gtk.Label` `confirm_password_label` “The passwords do not match.” (hidden until needed — an **error state**); `Gtk.LevelBar` `strength_indicator` (continuous, max 5) with offsets `strength-weak`, `strength-low`, `strength-medium`, `strength-good`, `strength-high`; `Gtk.Label` `strength_hint_label` (`dim-label explanation-label`) |
+| `gdu-create-confirm-page.blp` + `.c` | `lib/create_confirm_page.rb` **(present)** | `Adw.Bin` (400 wide) → `Adw.Banner` “Warning: All the data on the volume will be lost” (revealed), a `Gtk.Label` “Confirm the details…”, and 4 `Adw.ActionRow`s (`property`): Device, Volume, Used (hidden unless known), Location |
 
 ### `src/resources/ui/gdu-edit-filesystem-dialog.blp` + `.c`
 → `lib/edit_filesystem_dialog.rb` · kind: dialog · **missing**
@@ -556,12 +561,12 @@ ruby-gnome; the port's equivalent is `Gio::Notification` +
 
 ## 7. Model layer the components need (no UI of their own)
 
-| Upstream | → | Role |
-|---|---|---|
-| `src/disks/gdu-manager.c` | `lib/manager.rb` | the UDisks client, the drive list, `app.*` entry points |
-| `src/disks/gdu-item.c` | `lib/item.rb` | base interface for drive/block tree items |
-| `src/disks/gdu-drive.c` | `lib/drive.rb` | one drive, its features, its blocks |
-| `src/disks/gdu-block.c` | `lib/block.rb` | one block/partition, its `color` data, its usage |
+| Upstream | → | Role | Exists |
+|---|---|---|:-:|
+| `src/disks/gdu-manager.c` | `lib/manager.rb` | the UDisks client, the drive list, `app.*` entry points | yes |
+| `src/disks/gdu-item.c` | `lib/item.rb` | base interface for drive/block tree items | yes |
+| `src/disks/gdu-drive.c` | `lib/drive.rb` | one drive, its features, its blocks | yes |
+| `src/disks/gdu-block.c` | `lib/block.rb` | one block/partition, its `color` data, its usage | yes |
 | `src/disks/gdu-job-manager.c`, `gdulocaljob.c`, `localjob.rs` | `lib/job_manager.rb`, `lib/local_job.rb` | the jobs behind `GduJobRow` |
 | `src/disks/gduestimator.c`, `estimator.rs` | `lib/estimator.rb` | rate/time estimates in the job rows and the image dialogs |
 | `src/disks/gdudvdsupport.c`, `gduxzdecompressor.c`, `page_aligned_buffer.rs` | `lib/dvd_support.rb`, `lib/xz_decompressor.rb`, — | disk-image read paths; the aligned buffer has no Ruby analogue |
@@ -615,11 +620,11 @@ but is **loaded by no source file**. Record it as dead and skip it.
 | 19 | `gdu-new-disk-image-dialog.blp` + `.c` | `lib/new_disk_image_dialog.rb` | dialog | no |
 | 20 | `gdu-attach-disk-image-dialog.blp` + `.c` | `lib/attach_disk_image_dialog.rb` | dialog | no |
 | 21 | `gdu-format-volume-dialog.blp` + `.c` | `lib/format_volume_dialog.rb` | dialog (wizard) | no |
-| 22 | `gdu-create-partition-page.blp` + `.c` | `lib/create_partition_page.rb` | page | no |
-| 23 | `gdu-create-filesystem-page.blp` + `.c` | `lib/create_filesystem_page.rb` | page | no |
-| 24 | `gdu-create-other-page.blp` + `.c` | `lib/create_other_page.rb` | page | no |
+| 22 | `gdu-create-partition-page.blp` + `.c` | `lib/create_partition_page.rb` | page | yes |
+| 23 | `gdu-create-filesystem-page.blp` + `.c` | `lib/create_filesystem_page.rb` | page | yes |
+| 24 | `gdu-create-other-page.blp` + `.c` | `lib/create_other_page.rb` | page | yes |
 | 25 | `gdu-create-password-page.blp` + `.c` | `lib/create_password_page.rb` | page | no |
-| 26 | `gdu-create-confirm-page.blp` + `.c` | `lib/create_confirm_page.rb` | page | no |
+| 26 | `gdu-create-confirm-page.blp` + `.c` | `lib/create_confirm_page.rb` | page | yes |
 | 27 | `gdu-edit-filesystem-dialog.blp` + `.c` | `lib/edit_filesystem_dialog.rb` | dialog | no |
 | 28 | `gdu-edit-partition-dialog.blp` + `.c` | `lib/edit_partition_dialog.rb` | dialog | no |
 | 29 | `gdu-resize-volume-dialog.blp` + `.c` | `lib/resize_volume_dialog.rb` | dialog | no |
@@ -633,10 +638,10 @@ but is **loaded by no source file**. Record it as dead and skip it.
 | 37 | `src/disk-image-mounter/application.rs` + `main.rs` | `lib/image_mounter_application.rb` | application | no |
 | 38 | `gdu-image-mounter-window.blp` + `window.rs` | `lib/image_mounter_window.rb` | window | no |
 | 39 | `src/notify/gdusdmonitor.c` + `main.c` | `lib/sd_monitor.rb` | notifier | no |
-| 40 | `src/disks/gdu-manager.c` | `lib/manager.rb` | model | no |
+| 40 | `src/disks/gdu-manager.c` | `lib/manager.rb` | model | yes |
 | 41 | `src/disks/gdu-item.c` | `lib/item.rb` | model | yes |
-| 42 | `src/disks/gdu-drive.c` | `lib/drive.rb` | model | no |
-| 43 | `src/disks/gdu-block.c` | `lib/block.rb` | model | no |
+| 42 | `src/disks/gdu-drive.c` | `lib/drive.rb` | model | yes |
+| 43 | `src/disks/gdu-block.c` | `lib/block.rb` | model | yes |
 | 44 | `gdu-job-manager.c` + `gdulocaljob.c` | `lib/job_manager.rb`, `lib/local_job.rb` | model | yes |
 | 45 | `gduestimator.c` + `estimator.rs` | `lib/estimator.rb` | model | yes |
 | 46 | `src/libgdu/enums.rs` + `gduenums.h` | `lib/enums.rb` | model | yes |
@@ -644,14 +649,12 @@ but is **loaded by no source file**. Record it as dead and skip it.
 
 ## Blockers to settle before any port unit is written
 
-1. **No UDisks2 in the dev shell, and no Ruby UDisks binding.** Every
-   component above is driven by `UDisksClient`. `flake.nix`'s `gtkStack` has
-   no `udisks` and `typelibPath` therefore carries no `UDisks-2.0.typelib`,
-   so `GObjectIntrospection` cannot load it. Decide and record: add `udisks`
-   to the flake and bind through `gobject-introspection`, or drive
-   `udisksctl`/D-Bus (`Gio::DBusProxy`) directly, or ship a fake device
-   layer for the UI units. Until this is chosen, every unit past the window
-   shell is blocked on data.
+1. ~~**No UDisks2 in the dev shell, and no Ruby UDisks binding.**~~ *Settled:*
+   `flake.nix`'s `gtkStack` carries `udisks2`, the gemspec depends on the
+   `udisks` gem, and `lib/manager.rb`/`lib/drive.rb`/`lib/block.rb` already
+   require it and drive `UDisks::Client`. The remaining UI units (drive
+   view, drive header, block row, every dialog below) can now be built
+   against the real model layer instead of a fake device.
 2. ~~**The port's file layout does not match the house shape.**~~ *Settled:*
    the port uses the pilot's flat `lib/<thing>.rb` layout with classes
    subclassing Adwaita widgets directly. `lib/gnome_disk_utility/application.rb`
