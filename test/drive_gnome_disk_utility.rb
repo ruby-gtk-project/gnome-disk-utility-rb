@@ -39,6 +39,7 @@ require "create_partition_page"
 require "create_confirm_page"
 require "combo_row"
 require "take_ownership_dialog"
+require "edit_filesystem_dialog"
 require "estimator"
 
 require_relative "gtk_driver"
@@ -861,5 +862,51 @@ GtkDriver.drive(AppDriverAdapter.new(app), shots: SHOTS) do |d, adapter|
     estimator = Estimator.new(1_000)
     estimator.add_sample(1_000)
     d.check("completed equals target") { estimator.completed_bytes == 1_000 }
+  end
+
+  # --- 20. EditFilesystemDialog: label-changed gating and the banner -------
+  d.step("EditFilesystemDialog disables Change until the label actually changes") do
+    fake_block = Class.new do
+      attr_accessor :label, :mounted
+
+      def fs_label = label
+
+      def needs_unmount? = mounted
+
+      def set_fs_label_async(new_label, &callback)
+        @set_label_calls ||= []
+        @set_label_calls << new_label
+        callback&.call(true, nil)
+      end
+
+      def set_label_calls = @set_label_calls || []
+    end.new
+    fake_block.label = "DATA"
+    fake_block.mounted = true
+
+    @efd_window = Gtk::Window.new
+    @efd_window.present
+
+    @efd = EditFilesystemDialog.new(fake_block)
+    @efd.build
+    @efd.present(@efd_window)
+
+    d.check("the entry row starts with the block's current label") { @efd.send(:fs_label_row).text == "DATA" }
+    d.check("Change starts disabled (text equals the current label)") { !@efd.send(:change_button).sensitive? }
+    d.check("the unmount warning banner is revealed for a mounted filesystem") { @efd.send(:warning_banner).revealed? }
+
+    @efd.send(:fs_label_row).text = "BACKUP"
+    d.check("typing a new label enables Change") { @efd.send(:change_button).sensitive? }
+    d.check("and removes the error style") { !@efd.send(:fs_label_row).has_css_class?("error") }
+
+    @efd.send(:fs_label_row).text = "DATA"
+    d.check("typing the old label back disables Change again") { !@efd.send(:change_button).sensitive? }
+    d.check("and marks the entry row as an error") { @efd.send(:fs_label_row).has_css_class?("error") }
+
+    @efd.send(:fs_label_row).text = "BACKUP"
+    @efd.send(:change_button).signal_emit("clicked")
+    d.check("Change calls through to Block#set_fs_label_async with the new label") do
+      fake_block.set_label_calls == ["BACKUP"]
+    end
   end
 end

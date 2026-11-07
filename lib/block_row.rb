@@ -2,6 +2,7 @@
 
 require 'adwaita'
 require 'udisks'
+require_relative 'edit_filesystem_dialog'
 require_relative 'enums'
 require_relative 'format_volume_dialog'
 require_relative 'take_ownership_dialog'
@@ -33,8 +34,8 @@ require_relative 'utils'
 # ported yet:
 #
 #   * Of the menu's thirteen `row.*` actions, only mount, unmount,
-#     take-ownership, format-partition and create-partition are installed.
-#     The rest — resize, edit-partition, edit-filesystem, change-passphrase,
+#     take-ownership, format-partition, edit-filesystem and create-partition
+#     are installed. The rest — resize, edit-partition, change-passphrase,
 #     configure-fstab, configure-crypttab, lock, unlock, check-fs, repair-fs,
 #     benchmark-partition and the two partition-image actions — each open a
 #     dialog this port has not built yet; GTK renders their menu items
@@ -155,6 +156,7 @@ class BlockRow < Adwaita::ExpanderRow
       action_group.lookup('unmount').enabled = Enums::Flags.set?(features, Enums::Feature::CAN_UNMOUNT)
       action_group.lookup('take_ownership').enabled = Enums::Flags.set?(features, Enums::Feature::TAKE_OWNERSHIP)
       action_group.lookup('format_partition').enabled = Enums::Flags.set?(features, Enums::Feature::FORMAT)
+      action_group.lookup('edit_filesystem').enabled = Enums::Flags.set?(features, Enums::Feature::EDIT_LABEL)
       action_group.lookup('delete').enabled = Enums::Flags.set?(features, Enums::Feature::DELETE_PARTITION)
     end
 
@@ -183,6 +185,7 @@ class BlockRow < Adwaita::ExpanderRow
         add_action(group, 'unmount') { unmount }
         add_action(group, 'take_ownership') { take_ownership }
         add_action(group, 'format_partition') { format_partition }
+        add_action(group, 'edit_filesystem') { edit_filesystem }
         add_action(group, 'delete') { delete_partition }
       end
     end
@@ -197,6 +200,11 @@ class BlockRow < Adwaita::ExpanderRow
     # format_partition_cb ().
     def format_partition
       FormatVolumeDialog.show(window, client, @block.object, add_partition: false)
+    end
+
+    # edit_filesystem_cb ().
+    def edit_filesystem
+      EditFilesystemDialog.show(window, @block)
     end
 
     # create_partition_cb (): walks up to the owning Drive for its client and
