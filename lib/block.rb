@@ -21,6 +21,14 @@ class Block < Item
 
   attr_reader :client, :object, :parent_item, :start_offset
 
+  # Drive#color_block sets this (by instance_variable_set, not through this
+  # writer) once it has decided which of the eight partition colours this
+  # block gets. SpaceAllocationBar#allocate_child reads it back to add the
+  # matching CSS class to the block's segment; with no reader at all, every
+  # drive with at least one partition crashed the space allocation bar the
+  # first time it tried to lay itself out.
+  attr_accessor :color
+
   # gdu_block_new (): a block backed by a real UDisksObject (a partition, or a
   # drive-less device's own Block interface).
   def self.new_for_object(client, object, parent = nil)

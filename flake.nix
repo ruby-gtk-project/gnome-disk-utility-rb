@@ -200,6 +200,13 @@
             # carries one it can start itself: `xvfb-run ruby exe/<app>` both
             # launches the app and is how test/drive_*.rb is run.
             pkgs.xvfb-run
+            # test/drive_gnome_disk_utility.rb wants to send a real key event
+            # (Escape) to prove win.go-back's accelerator reaches the window
+            # rather than only calling activate_action from Ruby. GTK4 has no
+            # public way to forge a Gdk key event from inside the process, so
+            # the keystroke has to come from the X server, matching tally-rb's
+            # flake.
+            pkgs.xdotool
             pkgs.gsettings-desktop-schemas
             pkgs.adwaita-icon-theme
           ] ++ gtkStack;

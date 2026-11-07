@@ -56,6 +56,15 @@ class TakeOwnershipDialog < Adwaita::AlertDialog
       end
 
       info_button.popover = info_popover
+
+      # on_recursive_switch_cb () runs once here so the dialog's default
+      # response starts in step with the switch's actual initial state
+      # (off). Without this, #initialize's `self.default_response = 'cancel'`
+      # — set before the switch even exists, just to give close_response
+      # something to fall back to — was the dialog's permanent starting
+      # default, so it opened with "Take Ownership" as the suggested action
+      # but "Cancel" as what Enter would activate.
+      on_recursive_switch
     end
   end
 
