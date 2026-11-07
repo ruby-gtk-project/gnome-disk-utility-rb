@@ -1,62 +1,50 @@
-# component-parity — gnome-disk-utility-rb
+# gnome-disk-utility-rb — component parity (refresh)
 
-Verdict: **no parity**. 14 of 46 upstream units have a port file at all;
-of those 14, several carry recorded, self-admitted scope reductions, and
-none has been checked against upstream for all four axes (count, style,
-behaviour, text) in a document that states pass/fail per axis. This report
-states that explicitly rather than letting the inventory's "present" column
-stand in for "at parity."
+Supersedes the component-parity.md committed at `2632264e` (written before
+`9e5734a0` ported the drive view, drive header, block row and format-volume
+wizard; that earlier report's "14/46, 0 confirmed" numbers are stale and
+understate current progress — but the picture is still **no parity**).
 
-## Axis-by-axis, for the 14 present units
+Based this pass on `component-identification.md` (refreshed alongside this
+file) plus direct reads of the files below.
 
-| File | Count | Style (CSS) | Behaviour (signals/actions) | Text (i18n) |
-|---|---|---|---|---|
-| `lib/main.rb` | gap — 2 menu actions (`app.new_disk_image`, `app.attach_disk_image`) unregistered because their dialogs don't exist | not checked | gap — same 2 actions | gap, see translation-parity.md |
-| `lib/window.rb` | not independently re-verified this pass; inventory marks "present" | not re-verified | gap — none of upstream's ten `win.*` accelerated actions is installed per the inventory's own blocker #3 | gap |
-| `lib/shortcuts_dialog.rb` | present | not re-verified | — | gap |
-| `lib/drive_row.rb` | present | not re-verified | not re-verified | gap |
-| `lib/job_row.rb` | present | not re-verified | not re-verified | gap |
-| `lib/space_allocation_bar.rb` | present (bug fixed this round per drive-findings.md: missing `#color` reader) | not re-verified | not re-verified | gap |
-| `lib/combo_row.rb` | present | not re-verified | not re-verified | gap |
-| `lib/take_ownership_dialog.rb` | present (default-response bug fixed per drive-findings.md) | not re-verified | not re-verified | gap |
-| `lib/utils.rb` | present | n/a | n/a | gap — `unfuse_path` ported, its upstream test is not (see test-parity.md) |
-| `lib/style.rb` | present | not re-verified against `src/resources/style.css` rule-for-rule | n/a | n/a |
-| `lib/item.rb`, `lib/job_manager.rb`, `lib/local_job.rb`, `lib/estimator.rb`, `lib/enums.rb` | present (model layer) | n/a | not re-verified | n/a |
-| `lib/manager.rb` | gap — `gdu_manager_open_loop_async` not ported (self-recorded, see accountability-ensurance.md) | n/a | gap, same method | n/a |
-| `lib/drive.rb` | gap — `#features` never sets `GDU_FEATURE_SMART`/`GDU_FEATURE_SETTINGS` (self-recorded) | n/a | gap | n/a |
+## Files present: count vs. behaviour
 
-I did not re-run a full signal-by-signal, CSS-class-by-CSS-class diff against
-upstream source for every "present" row in the time this pass had — that
-re-verification is itself undone and is listed as a gap below, not assumed
-clean because a prior pass called the file "present."
+| File | Structurally present | Behaviour gap |
+|---|---|---|
+| `lib/main.rb` | yes | self-documented: `app.new_disk_image`/`app.attach_disk_image` actions deliberately unregistered (their dialogs don't exist); 7 of 9 accelerated `win.*` actions (`open-drive-menu`, `open-volume-menu`, `format-disk`, `restore-disk-image`, `view-smart`, `disk-settings`, `format-partition`) have accelerators bound in `ACTION_ACCELS` but no action installed in `window_actions` — the keys do nothing |
+| `lib/window.rb` | yes | empty/drive-page stack switching present; no GSettings schema exists for the window-state binding it attempts |
+| `lib/drive_view.rb` | yes | self-documented: only 2 of 11 `view.*` actions installed (`format`, `show-drive-dialog`); `create-image`, `restore-image`, `benchmark`, `smart`, `settings`, `standby`, `wakeup`, `detach`, `eject`, `poweroff` are all unwired because their target dialogs/Drive methods don't exist |
+| `lib/drive_header.rb` | yes | its menu's items route through `drive_view`'s action group, so the same 9 unwired actions apply here too |
+| `lib/block_row.rb` | yes | `row.create_partition` wired; upstream's volume-level actions on the block menu (resize, edit filesystem, edit partition, change passphrase, unlock, mount options) have no destination dialog, so not independently re-verified for wiring beyond what the drive script's components cover |
+| `lib/format_volume_dialog.rb` + 5 wizard pages | yes | `CreateFilesystemPage` has a known, left-failing bug (row sensitivity resets once realized — recorded in `drive-findings.md`, not fixed) |
+| `lib/take_ownership_dialog.rb` | yes | default-response bug fixed this cycle (per `drive-findings.md`) |
+| model layer (`manager.rb`, `drive.rb`, `block.rb`, `item.rb`, `job_manager.rb`, `local_job.rb`, `estimator.rb`, `enums.rb`) | yes | `drive.rb`'s own class comment admits `#features` never sets `GDU_FEATURE_SMART`/`GDU_FEATURE_SETTINGS`; `manager.rb`'s `gdu_manager_open_loop_async` not ported (self-recorded) |
+| `lib/style.rb`, `lib/space_allocation_bar.rb`, `lib/combo_row.rb`, `lib/job_row.rb`, `lib/drive_row.rb`, `lib/shortcuts_dialog.rb`, `lib/utils.rb` | yes | not independently re-verified rule-for-rule/signal-for-signal against upstream source this pass beyond what `test/drive_gnome_disk_utility.rb` exercises |
 
-## The 32 missing units: zero axes hold
+## Files absent: 16 dialogs/windows, zero axes hold
 
-For all 32 units listed as absent in `component-identification.md`, all four
-axes are gaps by construction — there is no port file, so there is no count,
-no style, no behaviour and no text to compare. This includes:
+For every one of the 16 missing UI units named in `component-identification.md`
+(ATA SMART, attach/create/new/restore disk image, benchmark + graph, change
+passphrase, disk settings, edit filesystem, edit partition, encryption
+options, format disk, mount options, resize volume, unlock, erase-multiple-disks,
+and the entire Disk Image Mounter window) there is no file, so there is no
+count, style, behaviour or text to compare. Any menu item or button that
+would open one of these in upstream exists in the port's menus/headers only
+as inert chrome.
 
-- The entire **drive view and header** — the window's main content pane.
-  Nothing in `lib/window.rb` currently shows a drive's content; the window
-  renders sidebar and empty content only.
-- **23 dialogs/pages**: format disk, format volume (wizard), benchmark +
-  graph, ATA SMART, disk settings, create/restore/attach/new disk image,
-  edit filesystem, edit partition, resize volume, change passphrase, unlock,
-  mount options, encryption options, create-password-page.
-- The **Disk Image Mounter** app in its entirety (`org.gnome.DiskUtility.ImageMounter`)
-  — a second, separately-launchable GApplication upstream ships. Zero trace
-  of it on `ruby`.
-- The **udisks2 status notifier** (`src/notify/`).
-- **GSettings schema** (`data/org.gnome.Disks.gschema.xml`) — window-state
-  persistence that `gdu-window.c` depends on has no schema to bind to on
-  `ruby`.
+## Verdict
 
-## What "component-identification and component-parity" together conclude
+Not clean. Structurally, most of the *built* surface area (drive list,
+one drive's page, the format-volume wizard) now exists and the drive script
+exercises it without crashing. But:
 
-A reader of only `drive-findings.md` ("151 checks passed") or only
-`component-inventory.md`'s header line could believe substantial UI exists.
-It does not: the drive view — the screen a user sees immediately after
-picking a disk, which is most of what "Disks" is — is unbuilt, and so is
-every dialog it would open. Component parity for this port is **14/46 files
-touched, 0/46 confirmed at full four-axis parity**, because the four-axis
-check itself was never completed for the 14 that do exist.
+- 16 of 33 upstream dialogs/windows are entirely unbuilt.
+- 9 of 11 `view.*` drive actions and 7 of 9 accelerated `win.*` actions are
+  unwired — present in the menu as dead entries.
+- The Disk Image Mounter app and the udisks2 notifier are wholly absent.
+- Zero translation infrastructure (see `translation-parity.md`).
+
+A user who picks a drive and opens its menu hits a wall on all but two
+items (Format Disk, Drive Information). This is a partial port with real,
+working pieces — not a port at parity.

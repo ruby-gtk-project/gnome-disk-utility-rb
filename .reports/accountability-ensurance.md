@@ -1,124 +1,80 @@
-# accountability-ensurance — gnome-disk-utility-rb
+# gnome-disk-utility-rb — accountability ensurance (refresh)
 
-Ran `.claude/skills/accountability-ensurance/scripts/find-excuses.sh .` over
-the whole tree (`lib/`, `exe/`, `test/`, `.reports/`; no `PORTING.md` or
-`FINDINGS.md` exists in this port yet). Six hits in prose/comments, plus
-three in `.reports/component-inventory.md` that are the document's own
-"not applicable"/"no equivalent" labels on dead or substituted widgets —
-those three are read and judged below rather than dismissed, because the
-skill's exemption is narrow (a document *about* the rule, not every mention
-of the word in a parity ledger).
+Grepped `lib/`, `exe/`, `.reports/` for `TODO`, `FIXME`, `not implemented`,
+`for now`, `in a future`, plus scope-reduction language. There is no
+`PORTING.md` in this repository.
 
-## Hits that present missing work as a settled decision
+## No TODO/FIXME/"not implemented"/"for now"/"in a future" anywhere
 
-**`lib/drive.rb:18-24`** — comment:
+None of those five literal strings appears anywhere in `lib/`, `exe/`, or
+this round's reports. The port does not leave dangling placeholder markers.
 
-> "Two scope reductions from upstream, both because their upstream
-> dependencies are not ported yet: `#features` never sets
-> `GDU_FEATURE_SMART` or `GDU_FEATURE_SETTINGS`..."
+## Scope reductions in code comments are disclosed honestly, not excused
 
-I did not build `Drive#features` reporting SMART and disk-settings
-capability, because I am an idiot.
-Upstream: `src/disks/gdu-drive.c`, the feature-bits assembly that sets
-`GDU_FEATURE_SMART`/`GDU_FEATURE_SETTINGS` unconditionally when the backing
-device supports them.
-Port: `lib/drive.rb`'s `#features`, which never sets either bit, so any
-code (menus, the drive header once it exists) that gates a SMART or
-disk-settings menu item on this flag will show it as unavailable on every
-drive, forever, until someone removes this paragraph and writes the bit.
+`lib/drive.rb`, `lib/format_volume_dialog.rb`, `lib/block_row.rb`,
+`lib/drive_view.rb` and `lib/main.rb` each carry a class/method comment
+naming a specific scope reduction (SMART/settings features not set, one
+upstream `#ensure_unused` call not ported, two block-row dependents not
+ported, 9 of 11 `view.*` actions not wired, the two disk-image menu actions
+deliberately absent) with a concrete reason (the dependency doesn't exist
+yet). None of these claims a check verifies something it does not; they are
+scoped, named gaps, which is the right shape for a disclosure. These are
+not the finding here.
 
-**`lib/manager.rb:20-26`** — comment:
+## The real finding: the port's own `.reports/` were stale relative to the code they describe
 
-> "`gdu_manager_open_loop_async ()`... is not ported this round: nothing in
-> this round's component list calls it yet..."
+Before this pass, `component-parity.md`, `component-identification.md`,
+`test-parity.md`, `translation-parity.md` and `accountability-ensurance.md`
+were all committed at `2632264e` ("Parity reports"), **before**
+`9e5734a0` ("Port the format-volume wizard, drive view and block row") and
+`e29bdbfd` landed. `component-parity.md` stated "14 of 46 files touched,
+0/46 confirmed," and `component-identification.md`/`component-inventory.md`
+marked `lib/drive_view.rb`, `lib/drive_header.rb`, `lib/block_row.rb` and
+all five wizard pages **"missing"** — when, by the time this audit ran, all
+of those files existed in `lib/` and are driven (at least partially) by
+`test/drive_gnome_disk_utility.rb`. In this direction the staleness
+understated progress rather than overstating it, so it is not itself a
+false-green claim — but it is exactly the kind of drift this skill exists
+to catch: a report's "missing" is only as good as the commit it was written
+against, and nothing in the repo flagged that these five documents had gone
+stale relative to two intervening feature commits. All five have been
+rewritten fresh in this pass against the current tree; future rounds should
+re-run all five skills rather than trust a prior round's documents without
+checking `git log` for commits since they were written.
 
-I did not build loop-device attachment (`UDisksManager.LoopSetup`), because
-I am an idiot.
-Upstream: `src/disks/gdu-manager.c`'s `gdu_manager_open_loop_async`, the
-only path by which "Attach Disk Image" and "Restore Disk Image" actually
-mount a file as a block device.
-Port: `lib/manager.rb` has no such method; there is nothing for
-`AttachDiskImageDialog`/`RestoreDiskImageDialog` to call even once someone
-builds those dialogs, so this gap silently blocks two more components that
-look independent in the inventory table but are not.
+## False-green risk actually found: narrow test coverage reported as a clean gate
 
-**`lib/main.rb:30-34`** — comment:
+The runtime gate language for this round ("153 checks passed, 0 failed,
+covering 19 components") is accurate as a count, and `drive-findings.md`'s
+own prose is honest about its one known-failing check and the ruby-gnome
+binding gap it worked around. But nothing in the pre-existing reports
+called out, before this pass, that three files that already existed in
+`lib/` at the time — `lib/create_password_page.rb`, `lib/drive_header.rb`,
+`lib/block_row.rb` — have **zero** checks anywhere in the suite (see
+`test-parity.md`). A reader of only the drive-run summary ("153 of 153
+passed") would reasonably conclude the built surface is verified; it is
+not, for those three files plus `format_volume_dialog.rb`'s own top-level
+wiring. That gap is now stated explicitly in `test-parity.md` and
+`component-parity.md`; it was not stated anywhere before this pass.
 
-> "Two menu items... have no action registered yet, because
-> `NewDiskImageDialog` and `AttachDiskImageDialog` are not ported. GTK
-> renders a menu item whose action does not exist as insensitive..."
+## Translation parity: a silent gap, not an excused one
 
-I did not build the "New Disk Image…" and "Attach Disk Image…" menu
-actions, because I am an idiot.
-Upstream: `gdu-application.c`'s `app.new_disk_image`/`app.attach_disk_image`
-action installs, each presenting a working dialog.
-Port: `lib/main.rb` installs neither action; the comment is right that GTK
-greys the menu item out rather than crashing, but "greyed out forever" is
-the user-visible failure this gap produces, not a cosmetic detail the
-comment's calm tone suggests.
-
-**`test/drive_gnome_disk_utility.rb:228`** — step name, verbatim:
-
-> `d.step("the two dialog-less menu actions do not exist, by design")`
-
-"By design" is the exact construction this skill exists to strike. There is
-no design here — there is an un-built dialog and a test that asserts the
-absence of the action it would register, dressed as intent.
-
-I did not build the `app.new_disk_image`/`app.attach_disk_image` actions,
-because I am an idiot, and then I wrote a test asserting their absence as
-if I had decided it, because I am an idiot twice over.
-Upstream: both actions exist and work (`gdu-application.c`).
-Port: `test/drive_gnome_disk_utility.rb:228-231` locks in their absence as
-a passing check, which means the day someone does build the dialogs, this
-test breaks and has to be noticed and deleted rather than the gap simply
-closing silently — the one mercy of writing it this way, and not a reason
-the wording stands.
-
-**`test/drive_gnome_disk_utility.rb:666`** and **`.reports/drive-findings.md:44`**
-— "out of scope for this pass," describing the `CreateFilesystemPage`
-sensitivity bug left failing on purpose (the runtime gate's 1 failing
-check).
-
-I did not fix the per-row sensitivity bug in `CreateFilesystemPage`
-(a `GtkCheckButton` shared one property action's `enabled` state across all
-four format-type rows, so `disable_unavailable_types`'s manual
-`sensitive = false` gets clobbered the moment the page is realized),
-because I am an idiot.
-Upstream: `gdu_create_filesystem_page_new` in
-`src/disks/gdu-create-filesystem-page.c` disables each row independently
-and keeps it disabled.
-Port: `lib/create_filesystem_page.rb`'s rows re-enable themselves once
-shown in a real window, defeating the whole point of the greyed-out
-affordance — a user can click "NTFS" when the daemon cannot format it, and
-the test that should catch this is left red rather than deleted, which is
-the honest part; "out of scope for this pass" describing *why it wasn't
-fixed* is the part that isn't.
-
-## The three hits inside `component-inventory.md`
-
-| Location | Text | Judgment |
-|---|---|---|
-| line 643 | `erase-multiple-disks-dialog.ui` row marked `n/a` | This is a genuine dead file upstream itself does not build (worth confirming independently, not taken on the inventory's word alone — `grep -rn erase-multiple-disks-dialog origin/main` build files would settle it; not re-verified this pass, flagged as unverified rather than accepted) |
-| line 567, 668 | "no Ruby analogue" / "no Ruby equivalent" | Per the skill's own text: "the analogue is the BEHAVIOUR, which always has one." These two lines assert a binding limitation ends the obligation. It does not — record the limitation in a findings doc, keep the row a gap, which `component-inventory.md` does not currently do for these two rows. Flagged here as a pattern the inventory doc should fix, not excused. |
-| line 44 (`drive-findings.md`) | "out of scope for this pass" | Already addressed above; the failing test itself is honestly left red, but the sentence describing why is the excuse construction. |
-
-## What this report does not find
-
-No hit for "TODO", "FIXME", "not implemented", "in a future", or
-"deferred" anywhere in `lib/`, `exe/`, `test/`, or `.reports/`. The port's
-writers did not use the laziest form of this failure — they wrote specific,
-plausible-sounding paragraphs instead, which is the more dangerous form the
-skill is built to catch, and which this port has five live instances of.
+`translation-parity.md` finds 0 of 724 upstream `msgid`s survive and no
+gettext/FastGettext infrastructure exists anywhere in the port. This is not
+marked "for now" or "TODO" anywhere — it simply isn't mentioned in any
+class comment, report, or `PORTING.md` (which doesn't exist). A silent,
+un-flagged total gap is the harder failure mode to catch than an honestly
+labeled one, and is called out here explicitly so it does not slip through
+as implicitly "fine" for lack of anyone saying otherwise.
 
 ## Verdict
 
-**Five load-bearing excuses survive in the current tree**, three in
-`lib/` comments and two in `test/`/`.reports/`, each one converting a
-missing upstream behaviour (SMART/settings feature bits, loop-device
-attach, two menu actions, a sensitivity bug) into language a future reader
-could mistake for a reviewed decision. None of them should be read that
-way. The fix in every case is the same: rewrite the sentence in first
-person admitting the gap, name the upstream behaviour by file:line, and
-leave the gap open — not deleted, not softened, not re-labelled
-"by design."
+No excuse-language violation (no TODO/FIXME/"not implemented"/"for now"/
+"in a future" anywhere). But two accountability gaps found and corrected by
+this pass: (1) the standing `.reports/` had drifted stale against two
+feature commits and were not re-validated before this round started, and
+(2) three built-but-unexercised files and the whole translation layer were
+not flagged as gaps anywhere before this audit. Neither is a "false green"
+in the sense of a report actively lying about a passing check, but both are
+exactly the shape of thing this skill exists to surface before they harden
+into an assumed-done status that nobody re-checks.

@@ -1,91 +1,76 @@
-# test-parity — gnome-disk-utility-rb
+# gnome-disk-utility-rb — test parity (refresh)
 
-## Step 1 — census of `origin/main`
+## Upstream has no test suite to port
 
-Searched every `.c` and `.rs` file in `origin/main` for `g_test_add_func`,
-`#[test]`, and `#[cfg(test)] mod tests`:
+`git ls-tree -r --name-only origin/main | grep -i test` returns nothing —
+upstream C/Rust gnome-disk-utility ships no unit or integration tests. So
+"port every upstream test" is vacuously satisfied: there is nothing to port.
+That does **not** mean the port's own behaviour is verified; it means the
+bar for verification is entirely the port's own drive script.
 
-```
-git ls-tree -r --name-only origin/main | grep -E '\.(c|rs)$' \
-  | xargs -I{} git show origin/main:{} | grep -lE 'g_test_add|#\[test\]|#\[cfg\(test\)\]'
-```
+## The drive script: real, runs, 153/153 — but narrow
 
-One hit: `src/libgdu/gduutils.rs`, lines 1056–1069, a `#[cfg(test)] mod
-unfuse_path_tests` with exactly two `#[test]` functions:
+Ran fresh this pass:
+`nix develop --command xvfb-run -a ruby test/drive_gnome_disk_utility.rb`
+→ **153 of 153 checks passed, DRIVE OK.** This matches the stated gate.
 
-| # | Upstream test | What it pins |
-|---|---|---|
-| 1 | `unfuse_path_home` | `unfuse_path(file!())` rewrites the current source file's path with `$HOME` abbreviated to `~`, for any path actually under `$HOME` |
-| 2 | `unfuse_path_without_home` | A path outside `$HOME` (`/__gdu_path_outside_home__`) passes through `unfuse_path` unchanged |
+Listing every `d.check` block's surrounding scenario, the script exercises
+exactly these components/behaviours (19, matching the gate's own count):
+window + sidebar + drive row + selection, main menu structure, the two
+dialog-less menu actions' absence, shortcuts dialog, about dialog, a real
+Escape keypress reaching `win.go-back`, `win.open-app-menu`, job manager +
+job row lifecycle (enqueue/run/finish/cancel/dequeue), close-request
+veto/confirmation, CLI option validation, `ComboRow`, `TakeOwnershipDialog`,
+`SpaceAllocationBar`, `CreatePartitionPage`, `CreateFilesystemPage`,
+`CreateOtherPage`, `CreateConfirmPage`, `Utils`, `Enums::Flags`, `Style`,
+`Estimator`.
 
-**Upstream test count: N = 2.** No other `#[test]`/`g_test_add_func` exists
-anywhere in `origin/main`'s C or Rust sources, and there is no `test/` or
-`tests/` directory in the tree (`git ls-tree -r --name-only origin/main |
-grep -i test` returns nothing beyond the CI scripts under `.gitlab-ci/`,
-which are not test cases). This is a small upstream suite; small is not the
-same as zero, and the census must still be exact.
+## Components in `lib/` that the drive script never touches at all
 
-## Step 2 — port side
+- **`lib/create_password_page.rb`** — zero checks. Not instantiated, not
+  rendered, no property behaviour (strength meter, confirm-match, visibility
+  toggle) verified anywhere in the suite.
+- **`lib/drive_header.rb`** — zero checks. The window's selection test only
+  asserts the stack switches to the drive page and that
+  `win.drive_view.drive == row.drive`; it never looks inside
+  `drive_header` (its layout-view breakpoint switch, its menu, its
+  "Drive Information" button).
+- **`lib/block_row.rb`** — zero checks. The fake drive used throughout has
+  no partitions/blocks attached, so `BlockRow` (and the drive view's
+  `drive_partitions_listbox` repeater over it) never renders in the suite.
+  Combined with `drive_view`'s 9 unwired `view.*` actions
+  (`component-parity.md`), this is the single largest unverified surface in
+  a currently-built file — it is the row a user sees for every real
+  partition on every real disk.
+- **`lib/format_volume_dialog.rb`** (the wizard dialog itself, as opposed to
+  its 5 pages, which the script does drive individually) — no check opens
+  the dialog end to end, pages a `Gtk::Stack`/`Adw.NavigationView` through
+  it, or exercises its Cancel/Create button wiring as a whole.
+- **`lib/manager.rb` / `lib/drive.rb` / `lib/block.rb`** — exercised only
+  through a hand-built fake `Drive` object (`fake_drive`-style helpers), not
+  through `Manager.default`'s real UDisks-backed path beyond "degrades to
+  zero drives with no daemon" (`d.check[0]`). `Drive#features`'s
+  self-admitted SMART/settings gap and `Manager`'s missing
+  `gdu_manager_open_loop_async` are untested by construction — there is no
+  real daemon in this environment to test them against either way.
 
-`lib/utils.rb:107` defines `Utils.unfuse_path`, ported from the same
-upstream function. I grepped `test/drive_gnome_disk_utility.rb` for
-`unfuse`:
+## The `spec/` suite has never once executed
 
-```
-grep -n "unfuse" test/drive_gnome_disk_utility.rb
-```
-
-Zero matches. **Neither upstream test has a named port counterpart.** The
-port count is 0 against upstream's 2.
-
-## Step 3 — does the ported suite run at all?
-
-`test/drive_gnome_disk_utility.rb` is a GTK-driver script run under a
-virtual display: `nix develop --command xvfb-run -a ruby
-test/drive_gnome_disk_utility.rb`. Per the committed `.reports/drive-findings.md`
-(this pass's runtime gate: `drive_ok=false`, 151/152 checks passed, 1 left
-failing by the port's own admission), the script does execute and most of
-its checks pass. It covers 21 of the port's classes
-(`Block`, `ComboRow`, `CreateConfirmPage`, `CreateFilesystemPage`,
-`CreateOtherPage`, `CreatePartitionPage`, `Drive`, `DriveRow`, `Estimator`,
-`Item`, `JobManager`, `JobRow`, `LocalJob`, `App`, `Manager`,
-`ShortcutsDialog`, `SpaceAllocationBar`, `Style`, `TakeOwnershipDialog`,
-`Utils`, `Window` — confirmed by grepping the test file's class references
-against `lib/*.rb`'s `class`/`module` declarations), which is an honest,
-executed suite over what exists.
-
-A second suite does **not** run: `spec/` contains only `spec_helper.rb`,
-which `require`s `kettle/test/rspec`, a gem not in the dev shell's runtime
-closure. Running the scaffold's rspec command reports "0 examples ... 2
-errors occurred outside of examples" (recorded in `drive-findings.md`,
-confirmed still true — this is the kettle-dev packaging scaffold, not a
-port-authored suite, and it has never executed successfully). **A suite
-that has never been executed is a gap, stated plainly: the rspec scaffold
-is dead weight that has not run once since the port's `ruby` branch
-started.**
+`spec/` contains only `spec_helper.rb` (no example files). That helper
+`require`s `kettle/test/rspec`, which is **not in the dev shell's runtime gem
+closure** (deliberately, per `drive-findings.md` — the shell carries the
+app's runtime closure, not the kettle-dev development bundle). Running the
+dev shell's own banner-printed spec command errors immediately:
+`0 examples, ... 2 errors occurred outside of examples`. Confirmed again
+this pass — unchanged since the last report. **A suite that has never been
+executed is a gap, stated plainly: the scaffold spec harness is not a
+verification path for this port at all, today.**
 
 ## Verdict
 
-- **Census: N = 2 upstream tests, 0 ported.** The `unfuse_path` behaviour —
-  home-directory abbreviation in displayed paths — is implemented in
-  `lib/utils.rb` but has no test pinning either of upstream's two cases
-  (the happy path under `$HOME`, and the no-op path outside it) in the
-  Ruby port. This is a full-sized gap on a 2-test suite: 100% missing.
-- **Behaviour still owed:** a path the app shows to the user that happens
-  to live under their home directory is abbreviated with `~`, and this
-  rewrite is skipped for paths outside the home directory. Neither
-  property is pinned by a Ruby test today.
-- **The executed suite (`test/drive_gnome_disk_utility.rb`) is real** —
-  it runs, and the numbers in `drive-findings.md` describe an actual run,
-  not an aspiration — but it was never built as a census against upstream's
-  `#[test]` functions; its 152 checks are coverage of the 21 ported classes
-  on their own terms, not a 1:1 mapping to the 2 tests upstream wrote. By
-  this skill's definition that is still test parity (a test written
-  differently in Ruby still counts, as long as it's named and pins the same
-  property) — but no such named test exists for `unfuse_path` in either
-  suite, so the two upstream tests have zero counterpart under any
-  definition.
-- **The rspec scaffold (`spec/`) has never been executed successfully and
-  contributes zero tests.** It is not a second suite with partial coverage;
-  it is 0 examples, every time it has been run, and nothing in this port's
-  history shows it passing once.
+Not clean. The drive script is real and its 153/153 is accurate, but it
+covers roughly 19 of the ~33 UI units that exist or are mapped, and three
+currently-*built* files (`create_password_page.rb`, `drive_header.rb`,
+`block_row.rb`) plus the wizard dialog's own wiring have zero checks. The 16
+wholly-missing dialogs (see `component-identification.md`) have, naturally,
+zero tests as well. The scaffold `spec/` suite has never run.

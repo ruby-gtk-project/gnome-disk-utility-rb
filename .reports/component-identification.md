@@ -1,72 +1,104 @@
-# component-identification — gnome-disk-utility-rb
+# gnome-disk-utility-rb — component identification (refresh)
 
-Method: the `component-identification` skill, applied to `origin/main`
-(upstream C/Rust/blueprint, two apps: Disks `org.gnome.DiskUtility` and the
-Disk Image Mounter) and to the `ruby` branch's `lib/`.
+Supersedes the component-identification/inventory snapshots committed before
+`9e5734a0` (drive view, block row, format-volume wizard) and `e29bdbfd`. This
+pass re-walked `origin/main`'s tree (`git ls-tree -r --name-only origin/main`)
+against the current `lib/` on `ruby` as of this commit.
 
-The port already carries a file-by-file inventory of this kind at
-`.reports/component-inventory.md` (676 lines), built the same way: `.blp`/`.ui`
-templates read first as the component list, then the C/Rust backing each one
-for actions, signals and dynamic CSS. This report does not redo that
-enumeration; it verifies its headline counts against `origin/main` directly
-and states them as the identification census this audit relies on.
+Upstream ships **two GApplications and one daemon** in one tree:
 
-## Verified counts (against `origin/main`, re-run independently of the inventory doc)
+| Unit | Upstream entry | Port target | Status |
+|---|---|---|---|
+| Disks | `src/disks/main.c` + `gdu-application.c` | `lib/main.rb` | present, with two self-documented action gaps |
+| Disk Image Mounter | `src/disk-image-mounter/{main,application,window}.rs` | — | **absent** — no file anywhere in `lib/` or `exe/` |
+| udisks2 notifier | `src/notify/{main.c,gdusdmonitor.c}` | — | **absent** |
 
-- **46 upstream units** map to 46 target `lib/*.rb` files in the existing
-  inventory's table (41 numbered rows cover 1 dialog/page/widget/model each,
-  plus the application, window, two apps, and the stylesheet — see
-  `component-inventory.md` §"File mapping" for the full list). I re-counted
-  `git ls-tree -r --name-only origin/main | grep -c '^src/'` = 198 source
-  files (C, Rust, headers, `.blp`/`.ui`, build files) backing those 46 units.
-- **14 of 46** port files exist on `ruby`: `lib/main.rb`, `lib/window.rb`,
-  `lib/shortcuts_dialog.rb`, `lib/drive_row.rb`, `lib/job_row.rb`,
-  `lib/space_allocation_bar.rb`, `lib/combo_row.rb`,
-  `lib/take_ownership_dialog.rb`, `lib/utils.rb`, `lib/style.rb`,
-  `lib/item.rb`, `lib/job_manager.rb`, `lib/local_job.rb`,
-  `lib/estimator.rb`, `lib/enums.rb`, plus the model trio
-  `lib/manager.rb`/`lib/drive.rb`/`lib/block.rb` (present but each one's own
-  comment records scope it did not port — see `accountability-ensurance.md`).
-  Confirmed by `find lib -name '*.rb' | wc -l` = 21 files on disk against the
-  46-row map.
-- **32 of 46** upstream units have no port file at all: the drive view and
-  its header (`gdu-drive-view.blp`/`.c`, `gdu-drive-header.blp`/`.c`), the
-  block row, and the remaining drive/volume dialogs and wizard pages not
-  already counted above (`format-disk`, `benchmark` + its graph widget,
-  `ata-smart` (GtkBuilder `.ui`), `disk-settings`, `create-disk-image`,
-  `restore-disk-image`, `new-disk-image`, `attach-disk-image`,
-  `format-volume` wizard, `edit-filesystem`, `edit-partition`,
-  `resize-volume`, `change-passphrase`, `unlock`, `mount-options`,
-  `encryption-options`, `create-password-page`), plus the second
-  application (`src/disk-image-mounter/*` →
-  `lib/image_mounter_application.rb`, `lib/image_mounter_window.rb`) and the
-  notifier (`src/notify/gdusdmonitor.c` → `lib/sd_monitor.rb`). The five
-  `create-*-page`/`create-confirm-page` files that ARE ported are already
-  counted in the 14 present above.
-- **Translation and settings infrastructure are not inventoried as
-  components but are part of the app's surface**: `po/` (83 `.po` files
-  under `origin/main:po/`, confirmed with
-  `git ls-tree -r --name-only origin/main | grep -c '^po/.*\.po$'` = 83) and
-  `data/org.gnome.Disks.gschema.xml` (one GSettings schema, used by
-  `gdu-window.c` for window-state and referenced in the port's own window
-  comment) have zero counterpart on `ruby`: no `po/` directory, no
-  `.gschema.xml`, confirmed by `find . -iname '*.po' -o -iname '*.gschema.xml'`
-  returning nothing under `lib/`/`exe/`/repo root.
+## Upstream UI/dialog units (from `src/resources/ui/*.blp` + `*.ui` + their `.c`/`.rs`)
 
-## Known gaps in the identification itself
+29 blueprint files + 2 GtkBuilder `.ui` files = 31 declarative units, plus the
+code-only `gdu-space-allocation-bar.c` (custom `GtkWidget`, no `.blp`) and the
+Rust `gdu_combo_row.rs`. Current `lib/` file-for-file match:
 
-- `component-inventory.md` flags that `app.shortcuts` (referenced by the
-  main menu and an accelerator) and all ten `win.*` accelerated actions
-  (`win.go-back`, `win.open-drive-menu`, `win.format-disk`, etc.) are never
-  installed anywhere in upstream's own source — a real upstream bug, not a
-  port gap, but one the port must not silently inherit as "no action to
-  port."
-- Deprecated upstream widgets (`Gtk.TreeView`/`Gtk.ListStore` in the SMART
-  dialog, `Gtk.ComboBoxText` in disk settings) have no identified Ruby
-  replacement decision recorded yet because the dialogs that would need one
-  are unported.
+| Upstream | Port file | Present? |
+|---|---|---|
+| gdu-window.blp | lib/window.rb | yes |
+| shortcuts-dialog.blp | lib/shortcuts_dialog.rb | yes |
+| gdu-drive-row.blp | lib/drive_row.rb | yes |
+| gdu-drive-header.blp | lib/drive_header.rb | yes |
+| gdu-drive-view.blp | lib/drive_view.rb | yes |
+| gdu-block-row.blp | lib/block_row.rb | yes |
+| gdu-job-row.blp | lib/job_row.rb | yes |
+| gdu-space-allocation-bar.c | lib/space_allocation_bar.rb | yes |
+| gdu_combo_row.rs | lib/combo_row.rb | yes |
+| gdu-take-ownership-dialog.blp | lib/take_ownership_dialog.rb | yes |
+| gdu-format-volume-dialog.blp | lib/format_volume_dialog.rb | yes |
+| gdu-create-partition-page.blp | lib/create_partition_page.rb | yes |
+| gdu-create-filesystem-page.blp | lib/create_filesystem_page.rb | yes |
+| gdu-create-other-page.blp | lib/create_other_page.rb | yes |
+| gdu-create-confirm-page.blp | lib/create_confirm_page.rb | yes |
+| gdu-create-password-page.blp | lib/create_password_page.rb | yes |
+| gdu-ata-smart-dialog.ui | — | **no** |
+| gdu-attach-disk-image-dialog.blp | — | **no** |
+| gdu-benchmark-dialog.blp (+ benchmark graph) | — | **no** |
+| gdu-change-passphrase-dialog.blp | — | **no** |
+| gdu-create-disk-image-dialog.blp | — | **no** |
+| gdu-disk-settings-dialog.blp | — | **no** |
+| gdu-edit-filesystem-dialog.blp | — | **no** |
+| gdu-edit-partition-dialog.blp | — | **no** |
+| gdu-encryption-options-dialog.blp | — | **no** |
+| gdu-format-disk-dialog.blp | — | **no** |
+| gdu-mount-options-dialog.blp | — | **no** |
+| gdu-new-disk-image-dialog.blp | — | **no** |
+| gdu-resize-volume-dialog.blp | — | **no** |
+| gdu-restore-disk-image-dialog.blp | — | **no** |
+| gdu-unlock-dialog.blp | — | **no** |
+| erase-multiple-disks-dialog.ui | — | **no** |
+| gdu-image-mounter-window.blp | — | **no** (whole second app absent) |
 
-See `component-inventory.md` for the per-component table (widget type, CSS
-classes, signals, actions) on all 46 rows; this report's job was to confirm
-its counts are still accurate against `origin/main` as read today, and they
-are.
+**16 of 33 declarative UI units have no port file at all.** Every menu item,
+keyboard accelerator and action that opens one of those 16 is dead in the
+port: GTK will render the triggering button/menu row, but activating it does
+nothing (no handler exists) or the action was never installed.
+
+## Non-UI upstream pieces also checked
+
+- `data/org.gnome.Disks.gschema.xml` — GSettings schema `gdu-window.c` binds
+  window-state to. No `.gschema.xml` exists anywhere in this repo; `lib/window.rb`
+  cannot actually persist window state against a real schema.
+- `po/` — 88 files, including `POTFILES.in` listing every translatable
+  source and ~724 `msgid`s in a representative locale (`ar.po`). The port has
+  **no `po/` directory, no `.pot`, no gettext/FastGettext call anywhere in
+  `lib/` or `exe/`** (`grep -rn "gettext\|_(" lib exe` matches only a code
+  comment in `lib/utils.rb` quoting the upstream C macro, not a call). See
+  `translation-parity.md`.
+- `app.shortcuts` — referenced by `lib/main.rb`'s menu and wired to a real
+  `Gio::SimpleAction` (`register_actions`) — this one upstream gap the port
+  *does* close, correctly noted in the file's own class comment.
+- `win.*` actions — upstream's `ACTION_ACCELS` table (ported verbatim into
+  `App::ACTION_ACCELS`) binds 9 `win.*` actions to accelerators, but
+  `window_actions` in `lib/main.rb` only ever installs 2 of them
+  (`go-back`, `open-app-menu`). The other 7 (`open-drive-menu`,
+  `open-volume-menu`, `format-disk`, `restore-disk-image`, `view-smart`,
+  `disk-settings`, `format-partition`) have accelerators bound to actions
+  that do not exist in the window's action group — pressing F9, Ctrl+D,
+  Ctrl+S, Ctrl+E, Ctrl+P etc. does nothing. Two of those seven
+  (`open-drive-menu`/`open-volume-menu`) could be wired today against the
+  existing `drive_header`/`block_row` menu buttons; five cannot be, because
+  their target dialogs don't exist yet.
+
+## Empty / error states
+
+- Window's "No Device Selected" `Adw.StatusPage` empty state: present
+  (`lib/window.rb`), matches upstream copy and icon.
+  Not independently re-verified against drive-selected / drive-removed
+  transitions beyond what the drive script exercises.
+  - No empty/error state exists for any of the 16 missing dialogs, trivially
+  (there's no dialog to have one).
+
+## Bottom line
+
+**17 of 33 upstream UI units present** (16 absent dialogs/windows + the
+second app's window), plus the whole Disk Image Mounter application and the
+udisks2 notifier daemon absent, plus zero translation infrastructure, plus
+7 of 9 accelerated `win.*` actions pointing at nothing. This is a
+substantially incomplete port, not a nearly-finished one.
