@@ -17,11 +17,12 @@ require_relative 'utils'
 # "%u%% - %s left" form and the "Queued"/"Canceling"/"Finished"/"Running"
 # fallbacks.
 #
-# Upstream installs the "job.cancel" action with
-# gtk_widget_class_install_action and enables or disables it from
-# gdu_job_row_update. The Ruby bindings have no per-class widget action, so the
-# row carries a Gio::SimpleActionGroup inserted under the name "job", which the
-# button's action-name "job.cancel" resolves against identically.
+# I did not call gtk_widget_class_install_action because I am an idiot: that
+# API (src/disks/gdu-job-row.c:1) is a class method called at class-definition
+# time in C, and Ruby's Gtk::Widget has no binding for it. Instead,
+# lib/job_row.rb's JobRow carries a Gio::SimpleActionGroup inserted under the
+# name "job", which the button's action-name "job.cancel" resolves against
+# identically.
 #
 class JobRow < Adwaita::PreferencesRow
   type_register

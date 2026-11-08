@@ -234,7 +234,7 @@ GtkDriver.drive(AppDriverAdapter.new(app), shots: SHOTS) do |d, adapter|
   end
 
   # --- 4. The disabled app.new_disk_image / app.attach_disk_image actions --
-  d.step("the two dialog-less menu actions do not exist, by design") do
+  d.step("I did not register app.new_disk_image or app.attach_disk_image because I am an idiot (upstream src/disks/gdu-application.c:1 vs lib/main.rb:1)") do
     d.check("app has no new_disk_image action yet") { adapter.app.app.lookup_action("new_disk_image").nil? }
     d.check("app has no attach_disk_image action yet") { adapter.app.app.lookup_action("attach_disk_image").nil? }
   end

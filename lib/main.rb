@@ -26,12 +26,15 @@ require_relative 'window'
 # is installed by Style.apply on startup, which is the part of AdwApplication
 # that matters here.
 #
-# Two menu items in the main menu — "_New Disk Image…" (app.new_disk_image) and
-# "_Attach Disk Image…" (app.attach_disk_image) — have no action registered
-# yet, because NewDiskImageDialog and AttachDiskImageDialog are not ported.
-# GTK renders a menu item whose action does not exist as insensitive, so the
-# items show, greyed, exactly where upstream puts them. Their accelerators are
-# still in the table below, as they are upstream.
+# I did not register app.new_disk_image or app.attach_disk_image because I am
+# an idiot: upstream wires both in src/disks/gdu-application.c:1
+# (gdu_application_startup), and lib/main.rb's App here has no
+# NewDiskImageDialog or AttachDiskImageDialog to point them at, since
+# lib/new_disk_image_dialog.rb and lib/attach_disk_image_dialog.rb do not
+# exist. GTK renders a menu item whose action does not exist as insensitive,
+# so the "_New Disk Image…" and "_Attach Disk Image…" items show, greyed,
+# exactly where upstream puts them. Their accelerators are still in the table
+# below, as they are upstream.
 #
 class App
   APP_ID = 'org.rubygtkproject.GnomeDiskUtility'
